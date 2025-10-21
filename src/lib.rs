@@ -25,15 +25,19 @@ pub fn format_path(path: &Path) -> Result<()> {
 pub fn format_directory(dir: &Path) -> Result<()> {
     let walker = WalkBuilder::new(dir).standard_filters(true).build();
 
+    let mut num = 0;
+
     for entry in walker {
         let entry = entry?;
         let path = entry.path();
 
         if path.is_file() && path.extension().is_some_and(|ext| ext == "rs") {
-            println!("Processing: {}", path.display());
             format_file(path)?;
+            num += 1;
         }
     }
+
+    println!("Processed {num} files");
 
     Ok(())
 }

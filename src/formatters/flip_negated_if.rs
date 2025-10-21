@@ -37,12 +37,23 @@ fn find_negated_ifs(node: &SyntaxNode, replacements: &mut Vec<(usize, usize, Str
 }
 
 fn check_for_negation(expr: &ast::Expr) -> Option<String> {
+    // Check for prefix negation: !expr
     if let Some(prefix_expr) = ast::PrefixExpr::cast(expr.syntax().clone())
         && let Some(op) = prefix_expr.op_kind()
         && op == ast::UnaryOp::Not
         && let Some(inner_expr) = prefix_expr.expr()
     {
         return Some(inner_expr.to_string());
+    }
+
+    // Check for != comparison: a != b
+    if let Some(bin_expr) = ast::BinExpr::cast(expr.syntax().clone())
+        && let Some(op) = bin_expr.op_kind()
+        && op == ast::BinaryOp::CmpOp(ast::CmpOp::Eq { negated: true })
+        && let Some(lhs) = bin_expr.lhs()
+        && let Some(rhs) = bin_expr.rhs()
+    {
+        return Some(format!("{} == {}", lhs, rhs));
     }
 
     None
@@ -268,6 +279,84 @@ mod tests {
             } else {
                 // Comment in then branch
                 println!("false");
+            }
+        }
+        "#);
+    }
+
+    #[test]
+    fn test_inequality_simple() {
+        let input = unindent(
+            "
+            fn example(foo: i32, bar: i32) {
+                if foo != bar {
+                    println!(\"not equal\");
+                } else {
+                    println!(\"equal\");
+                }
+            }
+            ",
+        );
+
+        let output = flip_negated_ifs(&input);
+        insta::assert_snapshot!(output, @r#"
+        fn example(foo: i32, bar: i32) {
+            if foo == bar {
+                println!("equal");
+            } else {
+                println!("not equal");
+            }
+        }
+        "#);
+    }
+
+    #[test]
+    fn test_inequality_with_literals() {
+        let input = unindent(
+            "
+            fn example(x: i32) {
+                if x != 0 {
+                    println!(\"non-zero\");
+                } else {
+                    println!(\"zero\");
+                }
+            }
+            ",
+        );
+
+        let output = flip_negated_ifs(&input);
+        insta::assert_snapshot!(output, @r#"
+        fn example(x: i32) {
+            if x == 0 {
+                println!("zero");
+            } else {
+                println!("non-zero");
+            }
+        }
+        "#);
+    }
+
+    #[test]
+    fn test_inequality_with_option() {
+        let input = unindent(
+            "
+            fn example(opt: Option<i32>) {
+                if opt != None {
+                    println!(\"some\");
+                } else {
+                    println!(\"none\");
+                }
+            }
+            ",
+        );
+
+        let output = flip_negated_ifs(&input);
+        insta::assert_snapshot!(output, @r#"
+        fn example(opt: Option<i32>) {
+            if opt == None {
+                println!("none");
+            } else {
+                println!("some");
             }
         }
         "#);
