@@ -1,61 +1,79 @@
 pub mod formatters;
+pub mod lints;
 
 use anyhow::{Context, Result};
 use ignore::WalkBuilder;
 use std::fs;
 use std::path::Path;
 
-/// Format a single file or all Rust files in a directory
-pub fn format_path(path: &Path) -> Result<()> {
+/// Format and lint a single file or all Rust files in a directory.
+///
+/// When `dry_run` is true, no files are written.
+/// Returns the number of lint warnings found.
+pub fn format_path(path: &Path, dry_run: bool) -> Result<usize> {
     let metadata =
         fs::metadata(path).with_context(|| format!("Failed to access path: {}", path.display()))?;
 
     if metadata.is_file() {
-        format_file(path)?;
+        format_file(path, dry_run)
     } else if metadata.is_dir() {
-        format_directory(path)?;
+        format_directory(path, dry_run)
     } else {
         anyhow::bail!("Path is neither a file nor a directory: {}", path.display());
     }
-
-    Ok(())
 }
 
-/// Format all Rust files in a directory, respecting .gitignore
-pub fn format_directory(dir: &Path) -> Result<()> {
+/// Format and lint all Rust files in a directory, respecting .gitignore.
+///
+/// When `dry_run` is true, no files are written.
+/// Returns the number of lint warnings found.
+pub fn format_directory(dir: &Path, dry_run: bool) -> Result<usize> {
     let walker = WalkBuilder::new(dir).standard_filters(true).build();
 
-    let mut num = 0;
+    let mut num_files = 0;
+    let mut num_warnings = 0;
 
     for entry in walker {
         let entry = entry?;
         let path = entry.path();
 
         if path.is_file() && path.extension().is_some_and(|ext| ext == "rs") {
-            format_file(path)?;
-            num += 1;
+            num_warnings += format_file(path, dry_run)?;
+            num_files += 1;
         }
     }
 
-    println!("Processed {num} files");
+    println!("Processed {num_files} files");
 
-    Ok(())
+    Ok(num_warnings)
 }
 
-/// Format a single Rust file
-pub fn format_file(path: &Path) -> Result<()> {
+/// Format and lint a single Rust file.
+///
+/// When `dry_run` is true, no files are written.
+/// Returns the number of lint warnings found.
+pub fn format_file(path: &Path, dry_run: bool) -> Result<usize> {
     let content = fs::read_to_string(path)
         .with_context(|| format!("Failed to read file: {}", path.display()))?;
 
     let formatted = format_source(&content);
 
     if formatted != content {
-        fs::write(path, formatted)
-            .with_context(|| format!("Failed to write file: {}", path.display()))?;
-        println!("  Modified: {}", path.display());
+        if dry_run {
+            println!("  Would modify: {}", path.display());
+        } else {
+            fs::write(path, &formatted)
+                .with_context(|| format!("Failed to write file: {}", path.display()))?;
+            println!("  Modified: {}", path.display());
+        }
     }
 
-    Ok(())
+    let warnings = lint_source(&formatted);
+    for w in &warnings {
+        eprintln!("  {}:{}:{}: {}", path.display(), w.line, w.col, w.message);
+    }
+
+    Ok(warnings.len())
 }
 
 /// Format Rust source code by applying all formatters
@@ -68,4 +86,11 @@ pub fn format_source(source: &str) -> String {
     // Add more formatters here as they are implemented
 
     result
+}
+
+/// Lint Rust source code, returning all warnings
+pub fn lint_source(source: &str) -> Vec<lints::LintWarning> {
+    let mut warnings = Vec::new();
+    warnings.extend(lints::lint_negated_bool_names(source));
+    warnings
 }

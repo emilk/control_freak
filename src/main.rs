@@ -1,18 +1,26 @@
 use anyhow::Result;
+use clap::Parser;
 use control_freak::format_path;
-use std::env;
-use std::path::Path;
+use std::path::PathBuf;
+
+#[derive(Parser)]
+#[command(about = "An opinionated Rust source code formatter and linter")]
+struct Cli {
+    /// File or directory to process
+    path: PathBuf,
+
+    /// Only check and report; do not modify any files
+    #[arg(long)]
+    dry_run: bool,
+}
 
 fn main() -> Result<()> {
-    let args: Vec<String> = env::args().collect();
+    let cli = Cli::parse();
+    let num_warnings = format_path(&cli.path, cli.dry_run)?;
 
-    if args.len() < 2 {
-        eprintln!("Usage: {} <file_or_directory>", args[0]);
+    if num_warnings > 0 {
         std::process::exit(1);
     }
-
-    let path = Path::new(&args[1]);
-    format_path(path)?;
 
     Ok(())
 }
