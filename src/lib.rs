@@ -60,7 +60,13 @@ pub fn format_file(path: &Path, dry_run: bool) -> Result<usize> {
 
     if formatted != content {
         if dry_run {
-            println!("  Would modify: {}", path.display());
+            let changed_lines = changed_line_numbers(&content, &formatted);
+            println!(
+                "  Would modify: {} (line{}{})",
+                path.display(),
+                if changed_lines.len() == 1 { " " } else { "s " },
+                format_line_numbers(&changed_lines),
+            );
         } else {
             fs::write(path, &formatted)
                 .with_context(|| format!("Failed to write file: {}", path.display()))?;
@@ -74,6 +80,55 @@ pub fn format_file(path: &Path, dry_run: bool) -> Result<usize> {
     }
 
     Ok(warnings.len())
+}
+
+fn changed_line_numbers(old: &str, new: &str) -> Vec<usize> {
+    let old_lines: Vec<&str> = old.lines().collect();
+    let new_lines: Vec<&str> = new.lines().collect();
+    let mut changed = Vec::new();
+
+    let max_len = old_lines.len().max(new_lines.len());
+    for i in 0..max_len {
+        let old_line = old_lines.get(i).copied();
+        let new_line = new_lines.get(i).copied();
+        if old_line != new_line {
+            changed.push(i + 1);
+        }
+    }
+
+    changed
+}
+
+fn format_line_numbers(lines: &[usize]) -> String {
+    if lines.is_empty() {
+        return String::new();
+    }
+
+    // Group consecutive line numbers into ranges
+    let mut parts = Vec::new();
+    let mut start = lines[0];
+    let mut end = lines[0];
+
+    for &line in &lines[1..] {
+        if line == end + 1 {
+            end = line;
+        } else {
+            parts.push(if start == end {
+                format!("{start}")
+            } else {
+                format!("{start}-{end}")
+            });
+            start = line;
+            end = line;
+        }
+    }
+    parts.push(if start == end {
+        format!("{start}")
+    } else {
+        format!("{start}-{end}")
+    });
+
+    parts.join(", ")
 }
 
 /// Format Rust source code by applying all formatters

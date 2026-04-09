@@ -43,6 +43,15 @@ fn check_for_negation(expr: &ast::Expr) -> Option<String> {
         && op == ast::UnaryOp::Not
         && let Some(inner_expr) = prefix_expr.expr()
     {
+        // Exception: `!x.is_empty()` is idiomatic and should not be flipped
+        if let Some(method_call) = ast::MethodCallExpr::cast(inner_expr.syntax().clone())
+            && method_call
+                .name_ref()
+                .is_some_and(|name| name.text() == "is_empty")
+        {
+            return None;
+        }
+
         return Some(inner_expr.to_string());
     }
 
@@ -279,6 +288,58 @@ mod tests {
             } else {
                 // Comment in then branch
                 println!("false");
+            }
+        }
+        "#);
+    }
+
+    #[test]
+    fn test_is_empty_not_flipped() {
+        let input = unindent(
+            "
+            fn example(v: Vec<i32>) {
+                if !v.is_empty() {
+                    println!(\"has elements\");
+                } else {
+                    println!(\"empty\");
+                }
+            }
+            ",
+        );
+
+        let output = flip_negated_ifs(&input);
+        insta::assert_snapshot!(output, @r#"
+        fn example(v: Vec<i32>) {
+            if !v.is_empty() {
+                println!("has elements");
+            } else {
+                println!("empty");
+            }
+        }
+        "#);
+    }
+
+    #[test]
+    fn test_is_empty_chained_not_flipped() {
+        let input = unindent(
+            "
+            fn example(s: &str) {
+                if !s.trim().is_empty() {
+                    println!(\"non-blank\");
+                } else {
+                    println!(\"blank\");
+                }
+            }
+            ",
+        );
+
+        let output = flip_negated_ifs(&input);
+        insta::assert_snapshot!(output, @r#"
+        fn example(s: &str) {
+            if !s.trim().is_empty() {
+                println!("non-blank");
+            } else {
+                println!("blank");
             }
         }
         "#);

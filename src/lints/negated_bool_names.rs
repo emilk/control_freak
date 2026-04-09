@@ -3,16 +3,41 @@ use ra_ap_syntax::{AstNode, SyntaxNode, ast, ast::HasName};
 use super::LintWarning;
 
 const NEGATION_WORDS: &[&str] = &[
-    "cant", "cannot", "disable", "disabled", "dont", "never", "no", "not", "without",
+    "cannot",
+    "cant",
+    "disable",
+    "disabled",
+    "disallow",
+    "disallowed",
+    "disconnect",
+    "disconnected",
+    "dont",
+    "illegal",
+    "never",
+    "no",
+    "not",
+    "unavailable",
+    "unreachable",
+    "unusable",
+    "without",
 ];
 
-fn negation_word(name: &str) -> Option<&'static str> {
-    for segment in name.split('_') {
-        let lower = segment.to_ascii_lowercase();
-        for &word in NEGATION_WORDS {
-            if lower == *word {
-                return Some(word);
-            }
+// const NEGATION_PREFIXES: &[&str] = &["un", "non", "dis"]; // Too many false positives
+const NEGATION_PREFIXES: &[&str] = &[];
+
+fn negation_word(name: &str) -> Option<&str> {
+    let name = name.strip_prefix("is_").unwrap_or(name);
+
+    for word in name.split('_') {
+        let lower = word.to_ascii_lowercase();
+        if NEGATION_WORDS.contains(&lower.as_str()) {
+            return Some(word);
+        }
+        if NEGATION_PREFIXES
+            .iter()
+            .any(|prefix| lower.starts_with(prefix))
+        {
+            return Some(word);
         }
     }
     None
@@ -255,7 +280,7 @@ mod tests {
         assert_eq!(
             warnings,
             vec![
-                "constant `DISABLED` uses negation word \"disabled\"; use a positive name instead",
+                "constant `DISABLED` uses negation word \"DISABLED\"; use a positive name instead",
             ]
         );
     }
@@ -269,7 +294,7 @@ mod tests {
         ));
         assert_eq!(
             warnings,
-            vec!["static `NOT_READY` uses negation word \"not\"; use a positive name instead",]
+            vec!["static `NOT_READY` uses negation word \"NOT\"; use a positive name instead",]
         );
     }
 
@@ -347,7 +372,6 @@ mod tests {
             struct Good {
                 notable: bool,
                 annotation: bool,
-                disconnect_count: bool,
                 nonce_valid: bool,
             }
             ",
@@ -355,7 +379,6 @@ mod tests {
         // "notable" does not contain "not" as a word boundary,
         // "annotation" does not contain "no" as a word boundary,
         // "nonce_valid" does not contain "no" as a word boundary.
-        // "disconnect_count" doesn't match "disable".
         assert!(warnings.is_empty());
     }
 
