@@ -1,6 +1,8 @@
 pub mod negated_bool_names;
+pub mod use_destructuring;
 
 pub use negated_bool_names::lint_negated_bool_names;
+pub use use_destructuring::lint_use_destructuring;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct LintWarning {

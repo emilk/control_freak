@@ -162,14 +162,14 @@ fn restore_nolint_lines(original: &str, formatted: &str) -> String {
     let mut groups: Vec<(usize, usize)> = Vec::new();
     let mut i = 0;
     while i < orig_lines.len() {
-        if orig_lines[i] != fmt_lines[i] {
+        if orig_lines[i] == fmt_lines[i] {
+            i += 1;
+        } else {
             let start = i;
             while i < orig_lines.len() && orig_lines[i] != fmt_lines[i] {
                 i += 1;
             }
             groups.push((start, i));
-        } else {
-            i += 1;
         }
     }
 
@@ -207,6 +207,7 @@ pub fn lint_source(source: &str) -> Vec<lints::LintWarning> {
     let lines: Vec<&str> = source.lines().collect();
     let mut warnings = Vec::new();
     warnings.extend(lints::lint_negated_bool_names(source));
+    warnings.extend(lints::lint_use_destructuring(source));
     warnings.retain(|w| !is_nolint(&lines, w.line));
     warnings
 }

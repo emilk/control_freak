@@ -43,6 +43,11 @@ Detected negation words:
 `disconnect`, `disconnected`, `dont`, `illegal`, `never`, `no`, `not`,
 `unavailable`, `unreachable`, `unusable`, `without`.
 
+### Use destructuring
+Warns when a method accesses every field of `self` individually for a struct with
+at least three fields. Destructuring makes the compiler point out methods that
+need updating when a field is added.
+
 ## Suppressing control-freak
 Add a `// NOLINT` comment to suppress both formatters and lints
 on a given line. It can go on the line itself, or on the line above:
