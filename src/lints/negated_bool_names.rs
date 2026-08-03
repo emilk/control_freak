@@ -17,6 +17,7 @@ const NEGATION_WORDS: &[&str] = &[
     "no",
     "not",
     "unavailable",
+    "unloaded",
     "unreachable",
     "unusable",
     "without",
