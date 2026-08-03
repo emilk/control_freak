@@ -10,5 +10,5 @@ ignore = "0.4.32"
 ra_ap_syntax = "0.0.301"
 
 [dev-dependencies]
-insta = "1.41"
+insta = "1.48"
 unindent = "0.2.4"
