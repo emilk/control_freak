@@ -20,6 +20,23 @@ control_freak --dry-run src/
 
 Exits with code 1 if any lint warnings are found.
 
+## Configuration
+
+`control_freak` looks for `control_freak.toml` in the supplied file or directory,
+then in each parent directory. The closest file is used. All settings are optional:
+
+```toml
+[lints.negated_bool_names]
+enabled = false
+
+[lints.use_destructuring]
+enabled = true
+min_fields = 4
+```
+
+Both lints are enabled by default. `min_fields` defaults to `3` and controls the
+minimum number of struct fields before the use-destructuring lint can trigger.
+
 ## Formatters
 Formatters automatically rewrite your code.
 
@@ -45,7 +62,7 @@ Detected negation words:
 
 ### Use destructuring
 Warns when a method accesses every field of `self` individually for a struct with
-at least three fields. Destructuring makes the compiler point out methods that
+at least `min_fields` fields (three by default). Destructuring makes the compiler point out methods that
 need updating when a field is added.
 
 ## Suppressing control-freak

@@ -8,7 +8,10 @@ anyhow = "1.0"
 clap = { version = "4", features = ["derive"] }
 ignore = "0.4.32"
 ra_ap_syntax = "0.0.331" # Newer releases require Rust 1.95.
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.9"
 
 [dev-dependencies]
 insta = "1.48"
+tempfile = "3.23"
 unindent = "0.2.4"

@@ -1,7 +1,9 @@
+pub mod config;
 pub mod formatters;
 pub mod lints;
 
 use anyhow::{Context, Result};
+use config::Config;
 use ignore::WalkBuilder;
 use std::fs;
 use std::path::Path;
@@ -14,10 +16,12 @@ pub fn format_path(path: &Path, dry_run: bool) -> Result<usize> {
     let metadata =
         fs::metadata(path).with_context(|| format!("Failed to access path: {}", path.display()))?;
 
+    let config = Config::load_for_path(path)?;
+
     if metadata.is_file() {
-        format_file(path, dry_run)
+        format_file_with_config(path, dry_run, &config)
     } else if metadata.is_dir() {
-        format_directory(path, dry_run)
+        format_directory_with_config(path, dry_run, &config)
     } else {
         anyhow::bail!("Path is neither a file nor a directory: {}", path.display());
     }
@@ -28,6 +32,11 @@ pub fn format_path(path: &Path, dry_run: bool) -> Result<usize> {
 /// When `dry_run` is true, no files are written.
 /// Returns the number of lint warnings found.
 pub fn format_directory(dir: &Path, dry_run: bool) -> Result<usize> {
+    let config = Config::load_for_path(dir)?;
+    format_directory_with_config(dir, dry_run, &config)
+}
+
+fn format_directory_with_config(dir: &Path, dry_run: bool, config: &Config) -> Result<usize> {
     let walker = WalkBuilder::new(dir).standard_filters(true).build();
 
     let mut num_files = 0;
@@ -38,7 +47,7 @@ pub fn format_directory(dir: &Path, dry_run: bool) -> Result<usize> {
         let path = entry.path();
 
         if path.is_file() && path.extension().is_some_and(|ext| ext == "rs") {
-            num_warnings += format_file(path, dry_run)?;
+            num_warnings += format_file_with_config(path, dry_run, config)?;
             num_files += 1;
         }
     }
@@ -53,6 +62,11 @@ pub fn format_directory(dir: &Path, dry_run: bool) -> Result<usize> {
 /// When `dry_run` is true, no files are written.
 /// Returns the number of lint warnings found.
 pub fn format_file(path: &Path, dry_run: bool) -> Result<usize> {
+    let config = Config::load_for_path(path)?;
+    format_file_with_config(path, dry_run, &config)
+}
+
+fn format_file_with_config(path: &Path, dry_run: bool, config: &Config) -> Result<usize> {
     let content = fs::read_to_string(path)
         .with_context(|| format!("Failed to read file: {}", path.display()))?;
 
@@ -74,7 +88,7 @@ pub fn format_file(path: &Path, dry_run: bool) -> Result<usize> {
         }
     }
 
-    let warnings = lint_source(&formatted);
+    let warnings = lint_source_with_config(&formatted, config);
     for w in &warnings {
         eprintln!("  {}:{}:{}: {}", path.display(), w.line, w.col, w.message);
     }
@@ -204,10 +218,22 @@ fn restore_nolint_lines(original: &str, formatted: &str) -> String {
 ///
 /// Warnings on lines with a `// NOLINT` comment (or the line above) are suppressed.
 pub fn lint_source(source: &str) -> Vec<lints::LintWarning> {
+    lint_source_with_config(source, &Config::default())
+}
+
+/// Lint Rust source code using `config`, returning all warnings.
+pub fn lint_source_with_config(source: &str, config: &Config) -> Vec<lints::LintWarning> {
     let lines: Vec<&str> = source.lines().collect();
     let mut warnings = Vec::new();
-    warnings.extend(lints::lint_negated_bool_names(source));
-    warnings.extend(lints::lint_use_destructuring(source));
+    if config.lints.negated_bool_names.enabled {
+        warnings.extend(lints::lint_negated_bool_names(source));
+    }
+    if config.lints.use_destructuring.enabled {
+        warnings.extend(lints::lint_use_destructuring_with_min_fields(
+            source,
+            config.lints.use_destructuring.min_fields,
+        ));
+    }
     warnings.retain(|w| !is_nolint(&lines, w.line));
     warnings
 }
@@ -274,6 +300,21 @@ mod tests {
             ",
         );
         assert_eq!(lint_source(&source).len(), 1);
+    }
+
+    #[test]
+    fn lint_configuration_can_disable_individual_lints() {
+        let source = unindent(
+            "
+            struct Config { is_disabled: bool, a: i32, b: i32 }
+            impl Config { fn sum(&self) -> i32 { self.a + self.b + self.is_disabled as i32 } }
+            ",
+        );
+        let mut config = Config::default();
+        config.lints.negated_bool_names.enabled = false;
+        config.lints.use_destructuring.enabled = false;
+
+        assert!(lint_source_with_config(&source, &config).is_empty());
     }
 
     #[test]

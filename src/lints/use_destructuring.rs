@@ -4,16 +4,20 @@ use ra_ap_syntax::{AstNode, SyntaxNode, ast, ast::HasName};
 
 use super::LintWarning;
 
-const MIN_FIELDS: usize = 3;
+const DEFAULT_MIN_FIELDS: usize = 3;
 
 pub fn lint_use_destructuring(source: &str) -> Vec<LintWarning> {
+    lint_use_destructuring_with_min_fields(source, DEFAULT_MIN_FIELDS)
+}
+
+pub fn lint_use_destructuring_with_min_fields(source: &str, min_fields: usize) -> Vec<LintWarning> {
     let parse = ra_ap_syntax::SourceFile::parse(source, ra_ap_syntax::Edition::CURRENT);
     let root = parse.syntax_node();
     let structs = structs(&root);
 
     root.descendants()
         .filter_map(ast::Impl::cast)
-        .flat_map(|imp| lint_impl(&imp, &structs, source))
+        .flat_map(|imp| lint_impl(&imp, &structs, source, min_fields))
         .collect()
 }
 
@@ -40,6 +44,7 @@ fn lint_impl(
     imp: &ast::Impl,
     structs: &BTreeMap<String, Vec<String>>,
     source: &str,
+    min_fields: usize,
 ) -> Vec<LintWarning> {
     let Some(type_name) = impl_type_name(imp) else {
         return Vec::new();
@@ -47,7 +52,7 @@ fn lint_impl(
     let Some(fields) = structs.get(&type_name) else {
         return Vec::new();
     };
-    if fields.len() < MIN_FIELDS {
+    if fields.len() < min_fields {
         return Vec::new();
     }
 
@@ -270,6 +275,19 @@ mod tests {
             ",
         ));
         assert!(warnings.is_empty());
+    }
+
+    #[test]
+    fn respects_configured_minimum_field_count() {
+        let source = unindent(
+            "
+            struct Triple { a: i32, b: i32, c: i32 }
+            impl Triple { fn sum(&self) -> i32 { self.a + self.b + self.c } }
+            ",
+        );
+
+        assert!(lint_use_destructuring_with_min_fields(&source, 4).is_empty());
+        assert_eq!(lint_use_destructuring_with_min_fields(&source, 3).len(), 1);
     }
 
     #[test]
