@@ -6,9 +6,9 @@ edition = "2024"
 [dependencies]
 anyhow = "1.0"
 clap = { version = "4", features = ["derive"] }
-ignore = "0.4.0"
+ignore = "0.4.32"
 ra_ap_syntax = "0.0.301"
 
 [dev-dependencies]
 insta = "1.41"
-unindent = "0.2.0"
+unindent = "0.2.4"
