@@ -174,16 +174,18 @@ fn restore_nolint_lines(original: &str, formatted: &str) -> String {
 
     // Find contiguous groups of changed lines (0-indexed, exclusive end)
     let mut groups: Vec<(usize, usize)> = Vec::new();
-    let mut i = 0;
-    while i < orig_lines.len() {
-        if orig_lines[i] == fmt_lines[i] {
-            i += 1;
-        } else {
-            let start = i;
-            while i < orig_lines.len() && orig_lines[i] != fmt_lines[i] {
+    {
+        let mut i = 0;
+        while i < orig_lines.len() {
+            if orig_lines[i] == fmt_lines[i] {
                 i += 1;
+            } else {
+                let start = i;
+                while i < orig_lines.len() && orig_lines[i] != fmt_lines[i] {
+                    i += 1;
+                }
+                groups.push((start, i));
             }
-            groups.push((start, i));
         }
     }
 
