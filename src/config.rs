@@ -53,6 +53,7 @@ impl Config {
 #[derive(Debug, Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct LintsConfig {
+    pub max_mut_bindings: MaxMutBindingsConfig,
     pub max_struct_fields: MaxStructFieldsConfig,
     pub max_visible_bindings: MaxVisibleBindingsConfig,
     pub negated_bool_names: LintConfig,
@@ -68,6 +69,22 @@ pub struct LintConfig {
 impl Default for LintConfig {
     fn default() -> Self {
         Self { enabled: true }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct MaxMutBindingsConfig {
+    pub enabled: bool,
+    pub max_bindings: usize,
+}
+
+impl Default for MaxMutBindingsConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            max_bindings: 4,
+        }
     }
 }
 
@@ -126,6 +143,8 @@ mod tests {
     #[test]
     fn defaults_enable_all_lints() {
         let config = Config::default();
+        assert!(config.lints.max_mut_bindings.enabled);
+        assert_eq!(config.lints.max_mut_bindings.max_bindings, 4);
         assert!(config.lints.max_struct_fields.enabled);
         assert_eq!(config.lints.max_struct_fields.max_fields, 12);
         assert!(config.lints.max_visible_bindings.enabled);

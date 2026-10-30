@@ -225,6 +225,12 @@ pub fn lint_source(source: &str) -> Vec<lints::LintWarning> {
 pub fn lint_source_with_config(source: &str, config: &Config) -> Vec<lints::LintWarning> {
     let lines: Vec<&str> = source.lines().collect();
     let mut warnings = Vec::new();
+    if config.lints.max_mut_bindings.enabled {
+        warnings.extend(lints::lint_max_mut_bindings(
+            source,
+            config.lints.max_mut_bindings.max_bindings,
+        ));
+    }
     if config.lints.max_struct_fields.enabled {
         warnings.extend(lints::lint_max_struct_fields(
             source,
@@ -323,6 +329,7 @@ mod tests {
             ",
         );
         let mut config = Config::default();
+        config.lints.max_mut_bindings.enabled = false;
         config.lints.max_struct_fields.enabled = false;
         config.lints.max_visible_bindings.enabled = false;
         config.lints.negated_bool_names.enabled = false;

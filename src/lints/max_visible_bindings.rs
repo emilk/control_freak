@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::BTreeMap;
 
 use ra_ap_syntax::{
     AstNode, TextRange, TextSize, ast,
@@ -16,6 +16,16 @@ struct Binding {
 
     /// The range of code that can see the binding.
     scope: TextRange,
+
+    /// Declared with `mut`, e.g. `let mut x` or `mut self`.
+    is_mut: bool,
+}
+
+/// Which bindings to count.
+#[derive(Clone, Copy)]
+enum Count {
+    All,
+    Mut,
 }
 
 /// Warn about functions where more than `max_bindings` names are visible at once.
@@ -24,17 +34,33 @@ struct Binding {
 /// and bindings introduced by `if let`, `while let`, `for`, and `match` arms.
 /// A shadowed name counts once.
 pub fn lint_max_visible_bindings(source: &str, max_bindings: usize) -> Vec<LintWarning> {
+    lint(source, max_bindings, Count::All)
+}
+
+/// Like [`lint_max_visible_bindings`], but only counts `mut` bindings.
+///
+/// A `mut` binding shadowed by an immutable one no longer counts.
+pub fn lint_max_mut_bindings(source: &str, max_bindings: usize) -> Vec<LintWarning> {
+    lint(source, max_bindings, Count::Mut)
+}
+
+fn lint(source: &str, max_bindings: usize, count: Count) -> Vec<LintWarning> {
     let parse = ra_ap_syntax::SourceFile::parse(source, ra_ap_syntax::Edition::CURRENT);
 
     parse
         .syntax_node()
         .descendants()
         .filter_map(ast::Fn::cast)
-        .filter_map(|function| lint_function(&function, source, max_bindings))
+        .filter_map(|function| lint_function(&function, source, max_bindings, count))
         .collect()
 }
 
-fn lint_function(function: &ast::Fn, source: &str, max_bindings: usize) -> Option<LintWarning> {
+fn lint_function(
+    function: &ast::Fn,
+    source: &str,
+    max_bindings: usize,
+    count: Count,
+) -> Option<LintWarning> {
     let body = function.body()?.syntax().text_range();
     let mut bindings: Vec<Binding> = function
         .syntax()
@@ -51,6 +77,7 @@ fn lint_function(function: &ast::Fn, source: &str, max_bindings: usize) -> Optio
                 name: name.text().to_string(),
                 site: pat.syntax().text_range().start(),
                 scope: scope(&pat, body)?,
+                is_mut: pat.mut_token().is_some() && pat.ref_token().is_none(),
             })
         })
         .collect();
@@ -59,18 +86,33 @@ fn lint_function(function: &ast::Fn, source: &str, max_bindings: usize) -> Optio
             name: "self".to_owned(),
             site: self_param.syntax().text_range().start(),
             scope: body,
+            is_mut: self_param.mut_token().is_some() && self_param.amp_token().is_none(),
         });
     }
     bindings.sort_by_key(|binding| (binding.scope.start(), binding.site));
 
-    let (binding, num_visible) = bindings.iter().find_map(|binding| {
-        let visible: BTreeSet<&str> = bindings
-            .iter()
-            .filter(|other| other.scope.contains(binding.scope.start()))
-            .map(|other| other.name.as_str())
-            .collect();
-        (max_bindings < visible.len()).then_some((binding, visible.len()))
-    })?;
+    let is_counted = |binding: &Binding| match count {
+        Count::All => true,
+        Count::Mut => binding.is_mut,
+    };
+
+    let (binding, num_visible) = bindings
+        .iter()
+        .filter(|binding| is_counted(binding))
+        .find_map(|binding| {
+            // Later bindings shadow earlier ones with the same name.
+            let visible: BTreeMap<&str, &Binding> = bindings
+                .iter()
+                .filter(|other| other.scope.contains(binding.scope.start()))
+                .map(|other| (other.name.as_str(), other))
+                .collect();
+            let num_visible = visible.values().filter(|other| is_counted(other)).count();
+            (max_bindings < num_visible).then_some((binding, num_visible))
+        })?;
+    let kind = match count {
+        Count::All => "bindings",
+        Count::Mut => "mutable bindings",
+    };
 
     let (line, col) = offset_to_line_col(source, usize::from(binding.site));
     let function_name = function.name()?;
@@ -78,7 +120,7 @@ fn lint_function(function: &ast::Fn, source: &str, max_bindings: usize) -> Optio
         line,
         col,
         message: format!(
-            "{num_visible} bindings are visible in `{function_name}` (max {max_bindings}); consider splitting it up"
+            "{num_visible} {kind} are visible in `{function_name}` (max {max_bindings}); consider splitting it up"
         ),
     })
 }
@@ -184,6 +226,34 @@ mod tests {
                 2
             )
             .is_empty()
+        );
+    }
+
+    #[test]
+    fn mut_counts_only_mut_bindings() {
+        let source = "fn f(mut a: i32, b: i32) {\n    let c = 0;\n    let mut d = 0;\n}";
+        assert!(lint_max_mut_bindings(source, 2).is_empty());
+        assert_eq!(
+            lint_max_mut_bindings(source, 1)
+                .into_iter()
+                .map(|warning| warning.to_string())
+                .collect::<Vec<_>>(),
+            vec!["3:9: 2 mutable bindings are visible in `f` (max 1); consider splitting it up"]
+        );
+    }
+
+    #[test]
+    fn mut_ignores_references_and_shadowed_mut() {
+        let sources = [
+            "impl S { fn f(&mut self, ref mut a: i32) {} }",
+            "fn f(mut a: i32) { let a = a; let mut b = 0; }",
+        ];
+        for source in sources {
+            assert!(lint_max_mut_bindings(source, 1).is_empty(), "{source}");
+        }
+        assert_eq!(
+            lint_max_mut_bindings("impl S { fn f(mut self, mut a: i32) {} }", 1).len(),
+            1
         );
     }
 
