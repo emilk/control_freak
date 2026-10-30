@@ -26,6 +26,9 @@ Exits with code 1 if any lint warnings are found.
 then in each parent directory. The closest file is used. All settings are optional:
 
 ```toml
+[lints.max_struct_fields]
+max_fields = 8
+
 [lints.negated_bool_names]
 enabled = false
 
@@ -34,8 +37,7 @@ enabled = true
 min_fields = 4
 ```
 
-Both lints are enabled by default. `min_fields` defaults to `3` and controls the
-minimum number of struct fields before the use-destructuring lint can trigger.
+All lints are enabled by default. See each lint below for its settings.
 
 ## Formatters
 Formatters automatically rewrite your code.
@@ -50,6 +52,9 @@ Exception: `!x.is_empty()` is considered idiomatic and is not flipped.
 
 ## Lints
 Lints report warnings but do not modify code.
+
+### Max struct fields
+Warns when a struct has more than `max_fields` fields (12 by default). Big structs are hard to understand; consider grouping related fields into smaller structs.
 
 ### Negated boolean names
 Warns when a `bool` field, function/method return type, parameter, constant, or static

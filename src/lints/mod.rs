@@ -1,6 +1,8 @@
+pub mod max_struct_fields;
 pub mod negated_bool_names;
 pub mod use_destructuring;
 
+pub use max_struct_fields::lint_max_struct_fields;
 pub use negated_bool_names::lint_negated_bool_names;
 pub use use_destructuring::{lint_use_destructuring, lint_use_destructuring_with_min_fields};
 

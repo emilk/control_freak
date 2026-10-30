@@ -53,6 +53,7 @@ impl Config {
 #[derive(Debug, Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct LintsConfig {
+    pub max_struct_fields: MaxStructFieldsConfig,
     pub negated_bool_names: LintConfig,
     pub use_destructuring: UseDestructuringConfig,
 }
@@ -66,6 +67,22 @@ pub struct LintConfig {
 impl Default for LintConfig {
     fn default() -> Self {
         Self { enabled: true }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct MaxStructFieldsConfig {
+    pub enabled: bool,
+    pub max_fields: usize,
+}
+
+impl Default for MaxStructFieldsConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            max_fields: 12,
+        }
     }
 }
 
@@ -92,6 +109,8 @@ mod tests {
     #[test]
     fn defaults_enable_all_lints() {
         let config = Config::default();
+        assert!(config.lints.max_struct_fields.enabled);
+        assert_eq!(config.lints.max_struct_fields.max_fields, 12);
         assert!(config.lints.negated_bool_names.enabled);
         assert!(config.lints.use_destructuring.enabled);
         assert_eq!(config.lints.use_destructuring.min_fields, 3);
