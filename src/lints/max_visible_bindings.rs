@@ -17,7 +17,7 @@ struct Binding {
     /// The range of code that can see the binding.
     scope: TextRange,
 
-    /// Declared with `mut`, e.g. `let mut x` or `mut self`.
+    /// Allows mutation, e.g. `let mut x`, `x: &mut T`, or `&mut self`.
     is_mut: bool,
 }
 
@@ -77,7 +77,7 @@ fn lint_function(
                 name: name.text().to_string(),
                 site: pat.syntax().text_range().start(),
                 scope: scope(&pat, body)?,
-                is_mut: pat.mut_token().is_some() && pat.ref_token().is_none(),
+                is_mut: is_mut(&pat),
             })
         })
         .collect();
@@ -86,7 +86,8 @@ fn lint_function(
             name: "self".to_owned(),
             site: self_param.syntax().text_range().start(),
             scope: body,
-            is_mut: self_param.mut_token().is_some() && self_param.amp_token().is_none(),
+            is_mut: self_param.mut_token().is_some()
+                || self_param.ty().is_some_and(|ty| is_mut_ref(&ty)),
         });
     }
     bindings.sort_by_key(|binding| (binding.scope.start(), binding.site));
@@ -123,6 +124,28 @@ fn lint_function(
             "{num_visible} {kind} are visible in `{function_name}` (max {max_bindings}); consider splitting it up"
         ),
     })
+}
+
+/// Is `pat` declared with `mut`, or (as far as we can tell) a `&mut` reference?
+fn is_mut(pat: &ast::IdentPat) -> bool {
+    if pat.mut_token().is_some() {
+        return true;
+    }
+    let Some(parent) = pat.syntax().parent() else {
+        return false;
+    };
+    if let Some(param) = ast::Param::cast(parent.clone()) {
+        param.ty().is_some_and(|ty| is_mut_ref(&ty))
+    } else if let Some(stmt) = ast::LetStmt::cast(parent) {
+        stmt.ty().is_some_and(|ty| is_mut_ref(&ty))
+            || matches!(stmt.initializer(), Some(ast::Expr::RefExpr(expr)) if expr.mut_token().is_some())
+    } else {
+        false
+    }
+}
+
+fn is_mut_ref(ty: &ast::Type) -> bool {
+    matches!(ty, ast::Type::RefType(ty) if ty.mut_token().is_some())
 }
 
 /// The range in which the binding `pat` is visible.
@@ -243,9 +266,22 @@ mod tests {
     }
 
     #[test]
-    fn mut_ignores_references_and_shadowed_mut() {
+    fn mut_counts_mut_references() {
         let sources = [
-            "impl S { fn f(&mut self, ref mut a: i32) {} }",
+            "impl S { fn f(&mut self, a: &mut i32) {} }",
+            "impl S { fn f(self: &mut Self, ref mut a: i32) {} }",
+            "fn f(a: &mut i32) { let b: &mut i32 = a; }",
+            "fn f(a: &mut i32) { let b = &mut *a; }",
+        ];
+        for source in sources {
+            assert_eq!(lint_max_mut_bindings(source, 1).len(), 1, "{source}");
+        }
+    }
+
+    #[test]
+    fn mut_ignores_shared_references_and_shadowed_mut() {
+        let sources = [
+            "impl S { fn f(&self, a: &i32, ref b: i32) { let c = &a; } }",
             "fn f(mut a: i32) { let a = a; let mut b = 0; }",
         ];
         for source in sources {

@@ -60,7 +60,7 @@ Exception: `!x.is_empty()` is considered idiomatic and is not flipped.
 Lints report warnings but do not modify code.
 
 ### Max mut bindings
-Like [max visible bindings](#max-visible-bindings), but only counts names declared with `mut` (e.g. `let mut x`, `mut x: i32`, and `mut self`). Defaults to 4. `&mut` references and `ref mut` bindings are not counted, and a `mut` binding shadowed by an immutable one no longer counts. Lots of mutable state makes a function hard to follow.
+Like [max visible bindings](#max-visible-bindings), but only counts names that allow mutation: `mut` bindings (e.g. `let mut x`, `mut self`, `ref mut x`) and `&mut` references (e.g. `&mut self`, `x: &mut T`, `let x: &mut T`, `let x = &mut y`). Defaults to 4. A `&mut` reference without a type annotation or `&mut` initializer is not detected, since that needs type inference. A mutable binding shadowed by an immutable one no longer counts. Lots of mutable state makes a function hard to follow.
 
 ### Max struct fields
 Warns when a struct has more than `max_fields` fields (12 by default). Big structs are hard to understand; consider grouping related fields into smaller structs.
