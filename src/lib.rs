@@ -231,6 +231,12 @@ pub fn lint_source_with_config(source: &str, config: &Config) -> Vec<lints::Lint
             config.lints.max_struct_fields.max_fields,
         ));
     }
+    if config.lints.max_visible_bindings.enabled {
+        warnings.extend(lints::lint_max_visible_bindings(
+            source,
+            config.lints.max_visible_bindings.max_bindings,
+        ));
+    }
     if config.lints.negated_bool_names.enabled {
         warnings.extend(lints::lint_negated_bool_names(source));
     }
@@ -318,6 +324,7 @@ mod tests {
         );
         let mut config = Config::default();
         config.lints.max_struct_fields.enabled = false;
+        config.lints.max_visible_bindings.enabled = false;
         config.lints.negated_bool_names.enabled = false;
         config.lints.use_destructuring.enabled = false;
 

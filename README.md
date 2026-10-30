@@ -29,6 +29,9 @@ then in each parent directory. The closest file is used. All settings are option
 [lints.max_struct_fields]
 max_fields = 8
 
+[lints.max_visible_bindings]
+max_bindings = 10
+
 [lints.negated_bool_names]
 enabled = false
 
@@ -55,6 +58,9 @@ Lints report warnings but do not modify code.
 
 ### Max struct fields
 Warns when a struct has more than `max_fields` fields (12 by default). Big structs are hard to understand; consider grouping related fields into smaller structs.
+
+### Max visible bindings
+Warns when more than `max_bindings` names (16 by default) are visible at the same point in a function. This counts parameters (including `self`), `let` bindings, closure parameters, and bindings from `if let`, `while let`, `for`, and `match` arms. A shadowed name counts once. Too many live variables are hard to keep track of; consider splitting the function.
 
 ### Negated boolean names
 Warns when a `bool` field, function/method return type, parameter, constant, or static
