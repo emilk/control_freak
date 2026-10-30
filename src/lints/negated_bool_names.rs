@@ -1,6 +1,6 @@
 use ra_ap_syntax::{AstNode, SyntaxNode, ast, ast::HasName};
 
-use super::LintWarning;
+use super::{LintWarning, offset_to_line_col};
 
 const NEGATION_WORDS: &[&str] = &[
     "cannot",
@@ -46,23 +46,6 @@ fn negation_word(name: &str) -> Option<&str> {
 
 fn is_bool_type(ty: &ast::Type) -> bool {
     ty.to_string().trim() == "bool"
-}
-
-fn offset_to_line_col(source: &str, offset: usize) -> (usize, usize) {
-    let mut line = 1;
-    let mut col = 1;
-    for (i, ch) in source.char_indices() {
-        if i == offset {
-            return (line, col);
-        }
-        if ch == '\n' {
-            line += 1;
-            col = 1;
-        } else {
-            col += 1;
-        }
-    }
-    (line, col)
 }
 
 pub fn lint_negated_bool_names(source: &str) -> Vec<LintWarning> {

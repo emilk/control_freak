@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use ra_ap_syntax::{AstNode, SyntaxNode, ast, ast::HasName};
 
-use super::LintWarning;
+use super::{LintWarning, offset_to_line_col};
 
 const DEFAULT_MIN_FIELDS: usize = 3;
 
@@ -201,23 +201,6 @@ fn bindings(function: &ast::Fn) -> BTreeSet<String> {
         .filter_map(ast::IdentPat::cast)
         .filter_map(|pat| pat.name().map(|name| name.to_string()))
         .collect()
-}
-
-fn offset_to_line_col(source: &str, offset: usize) -> (usize, usize) {
-    let mut line = 1;
-    let mut col = 1;
-    for (index, character) in source.char_indices() {
-        if index == offset {
-            return (line, col);
-        }
-        if character == '\n' {
-            line += 1;
-            col = 1;
-        } else {
-            col += 1;
-        }
-    }
-    (line, col)
 }
 
 #[cfg(test)]

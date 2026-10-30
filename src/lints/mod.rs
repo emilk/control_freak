@@ -16,3 +16,21 @@ impl std::fmt::Display for LintWarning {
         write!(f, "{}:{}: {}", self.line, self.col, self.message)
     }
 }
+
+/// Convert a byte offset into a 1-based `(line, column)` pair.
+pub(crate) fn offset_to_line_col(source: &str, offset: usize) -> (usize, usize) {
+    let mut line = 1;
+    let mut col = 1;
+    for (index, character) in source.char_indices() {
+        if index == offset {
+            return (line, col);
+        }
+        if character == '\n' {
+            line += 1;
+            col = 1;
+        } else {
+            col += 1;
+        }
+    }
+    (line, col)
+}
