@@ -134,7 +134,7 @@ impl Default for MaxMutBindingsConfig {
     fn default() -> Self {
         Self {
             enabled: true,
-            max_bindings: 4,
+            max_bindings: 6,
         }
     }
 }
@@ -150,7 +150,7 @@ impl Default for MaxStructFieldsConfig {
     fn default() -> Self {
         Self {
             enabled: true,
-            max_fields: 12,
+            max_fields: 16,
         }
     }
 }
@@ -166,7 +166,7 @@ impl Default for MaxVisibleBindingsConfig {
     fn default() -> Self {
         Self {
             enabled: true,
-            max_bindings: 16,
+            max_bindings: 24,
         }
     }
 }
@@ -196,11 +196,11 @@ mod tests {
         let config = Config::default();
         assert!(config.skip_generated);
         assert!(config.lints.max_mut_bindings.enabled);
-        assert_eq!(config.lints.max_mut_bindings.max_bindings, 4);
+        assert_eq!(config.lints.max_mut_bindings.max_bindings, 6);
         assert!(config.lints.max_struct_fields.enabled);
-        assert_eq!(config.lints.max_struct_fields.max_fields, 12);
+        assert_eq!(config.lints.max_struct_fields.max_fields, 16);
         assert!(config.lints.max_visible_bindings.enabled);
-        assert_eq!(config.lints.max_visible_bindings.max_bindings, 16);
+        assert_eq!(config.lints.max_visible_bindings.max_bindings, 24);
         assert!(config.lints.negated_bool_names.enabled);
         assert!(config.lints.use_destructuring.enabled);
         assert_eq!(config.lints.use_destructuring.min_fields, 3);
