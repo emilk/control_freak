@@ -2,6 +2,7 @@ pub mod config;
 pub mod formatters;
 mod generated;
 pub mod lints;
+mod test_code;
 
 use anyhow::{Context as _, Result};
 use config::Config;
@@ -68,6 +69,7 @@ fn format_directory_with_config(dir: &Path, fix: bool, config: &Config) -> Resul
 
     let mut num_files = 0;
     let mut num_generated = 0;
+    let mut num_tests = 0;
     let mut num_problems = 0;
 
     for entry in walker {
@@ -79,15 +81,27 @@ fn format_directory_with_config(dir: &Path, fix: bool, config: &Config) -> Resul
                 num_generated += 1;
                 continue;
             }
+            if config.skip_tests && test_code::is_integration_test_file(path) {
+                num_tests += 1;
+                continue;
+            }
             num_problems += format_file_with_config(path, fix, config)?;
             num_files += 1;
         }
     }
 
-    if num_generated == 0 {
+    let skipped: Vec<String> = [(num_generated, "generated"), (num_tests, "test")]
+        .into_iter()
+        .filter(|&(count, _)| 0 < count)
+        .map(|(count, kind)| format!("{count} {kind}"))
+        .collect();
+    if skipped.is_empty() {
         println!("Processed {num_files} files");
     } else {
-        println!("Processed {num_files} files (skipped {num_generated} generated)");
+        println!(
+            "Processed {num_files} files (skipped {})",
+            skipped.join(", ")
+        );
     }
 
     Ok(num_problems)
@@ -263,7 +277,14 @@ pub fn lint_source_with_config(source: &str, config: &Config) -> Vec<lints::Lint
             config.lints.use_destructuring.min_fields,
         ));
     }
-    warnings.retain(|w| !is_nolint(&lines, w.line));
+    let test_lines = if config.skip_tests {
+        test_code::test_line_ranges(source)
+    } else {
+        Vec::new()
+    };
+    warnings.retain(|w| {
+        !is_nolint(&lines, w.line) && !test_lines.iter().any(|range| range.contains(&w.line))
+    });
     warnings
 }
 
@@ -329,6 +350,23 @@ mod tests {
             ",
         );
         assert_eq!(lint_source(&source).len(), 1);
+    }
+
+    #[test]
+    fn skip_tests_hides_lints_in_test_code() {
+        let source = unindent(
+            "
+            struct Real { is_disabled: bool }
+            #[cfg(test)]
+            mod tests {
+                struct Fake { is_disabled: bool }
+            }
+            ",
+        );
+        let mut config = Config::default();
+        assert_eq!(lint_source_with_config(&source, &config).len(), 1);
+        config.skip_tests = false;
+        assert_eq!(lint_source_with_config(&source, &config).len(), 2);
     }
 
     #[test]

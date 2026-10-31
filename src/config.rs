@@ -14,6 +14,9 @@ pub struct Config {
     /// Skip files marked `linguist-generated` in `.gitattributes` when walking directories.
     pub skip_generated: bool,
 
+    /// Don't lint test code: `#[test]` functions, `#[cfg(test)]` items, and integration tests.
+    pub skip_tests: bool,
+
     /// Settings for each lint.
     pub lints: LintsConfig,
 }
@@ -22,6 +25,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             skip_generated: true,
+            skip_tests: true,
             lints: LintsConfig::default(),
         }
     }
@@ -76,6 +80,8 @@ impl Config {
         for line in toml.lines() {
             if line.starts_with("skip_generated =") {
                 text += "# Skip files marked `linguist-generated` in `.gitattributes`\n";
+            } else if line.starts_with("skip_tests =") {
+                text += "# Don't lint `#[test]` functions, `#[cfg(test)]` items, and integration tests\n";
             }
             if let Some(name) = line
                 .strip_prefix("[lints.")
@@ -195,6 +201,7 @@ mod tests {
     fn defaults_enable_all_lints() {
         let config = Config::default();
         assert!(config.skip_generated);
+        assert!(config.skip_tests);
         assert!(config.lints.max_mut_bindings.enabled);
         assert_eq!(config.lints.max_mut_bindings.max_bindings, 6);
         assert!(config.lints.max_struct_fields.enabled);
