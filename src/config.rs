@@ -97,9 +97,10 @@ impl Config {
     }
 
     fn validate(&self, path: &Path) -> Result<()> {
-        if self.lints.use_destructuring.min_fields == 0 {
+        let use_destructuring = &self.lints.use_destructuring;
+        if use_destructuring.min_fields == 0 || use_destructuring.owned.min_fields == 0 {
             anyhow::bail!(
-                "Invalid configuration in {}: lints.use_destructuring.min_fields must be at least 1",
+                "Invalid configuration in {}: lints.use_destructuring min_fields must be at least 1",
                 path.display(),
             );
         }
@@ -177,11 +178,19 @@ impl Default for MaxVisibleBindingsConfig {
     }
 }
 
+/// Settings for the `use_destructuring` lint.
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct UseDestructuringConfig {
+    /// Is the lint enabled?
     pub enabled: bool,
+
+    /// Borrowed values (`&self`, `foo: &Foo`) with at least this many fields
+    /// trigger when every field is accessed individually.
     pub min_fields: usize,
+
+    /// Settings for owned values (`self`, `foo: Foo`).
+    pub owned: OwnedDestructuringConfig,
 }
 
 impl Default for UseDestructuringConfig {
@@ -189,6 +198,30 @@ impl Default for UseDestructuringConfig {
         Self {
             enabled: true,
             min_fields: 3,
+            owned: OwnedDestructuringConfig::default(),
+        }
+    }
+}
+
+/// Settings for owned values in the `use_destructuring` lint.
+///
+/// Fields of an owned value that are never accessed are silently dropped,
+/// which is often a bug, so these also trigger when a few fields are missing.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct OwnedDestructuringConfig {
+    /// Only structs with at least this many fields trigger.
+    pub min_fields: usize,
+
+    /// Also trigger if at most this many fields are never accessed.
+    pub max_missing_fields: usize,
+}
+
+impl Default for OwnedDestructuringConfig {
+    fn default() -> Self {
+        Self {
+            min_fields: 3,
+            max_missing_fields: 1,
         }
     }
 }
@@ -211,6 +244,8 @@ mod tests {
         assert!(config.lints.negated_bool_names.enabled);
         assert!(config.lints.use_destructuring.enabled);
         assert_eq!(config.lints.use_destructuring.min_fields, 3);
+        assert_eq!(config.lints.use_destructuring.owned.min_fields, 3);
+        assert_eq!(config.lints.use_destructuring.owned.max_missing_fields, 1);
     }
 
     #[test]

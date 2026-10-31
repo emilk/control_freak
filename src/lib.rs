@@ -272,9 +272,9 @@ pub fn lint_source_with_config(source: &str, config: &Config) -> Vec<lints::Lint
         warnings.extend(lints::lint_negated_bool_names(source));
     }
     if config.lints.use_destructuring.enabled {
-        warnings.extend(lints::lint_use_destructuring_with_min_fields(
+        warnings.extend(lints::lint_use_destructuring(
             source,
-            config.lints.use_destructuring.min_fields,
+            &config.lints.use_destructuring,
         ));
     }
     let test_lines = if config.skip_tests {
