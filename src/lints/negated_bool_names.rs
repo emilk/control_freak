@@ -1,4 +1,7 @@
-use ra_ap_syntax::{AstNode as _, SyntaxNode, ast, ast::HasName as _};
+use ra_ap_syntax::{
+    AstNode as _, SyntaxNode, ast,
+    ast::{HasAttrs as _, HasName as _},
+};
 
 use super::{LintWarning, offset_to_line_col};
 
@@ -23,6 +26,12 @@ const NEGATION_WORDS: &[&str] = &[
     "without",
 ];
 
+/// Deriving any of these makes a type part of a CLI (clap or argh).
+const CLI_DERIVES: &[&str] = &["Args", "FromArgs", "Parser", "Subcommand"];
+
+/// Field attributes used by clap and argh.
+const CLI_ATTRIBUTES: &[&str] = &["arg", "argh", "clap", "command"];
+
 // const NEGATION_PREFIXES: &[&str] = &["un", "non", "dis"]; // Too many false positives
 const NEGATION_PREFIXES: &[&str] = &[];
 
@@ -44,6 +53,31 @@ fn negation_word(name: &str) -> Option<&str> {
     None
 }
 
+fn is_cli_field(field: &ast::RecordField) -> bool {
+    let has_clap_attribute = field.attrs().any(|attr| {
+        attr.simple_name()
+            .is_some_and(|name| CLI_ATTRIBUTES.contains(&name.as_str()))
+    });
+    let in_clap_type = field
+        .syntax()
+        .ancestors()
+        .find_map(ast::Adt::cast)
+        .is_some_and(|adt| {
+            adt.attrs()
+                .filter_map(|attr| attr.as_simple_call())
+                .filter(|(name, _)| name == "derive")
+                .any(|(_, derives)| {
+                    derives
+                        .syntax()
+                        .text()
+                        .to_string()
+                        .split(|c: char| !c.is_alphanumeric() && c != '_')
+                        .any(|name| CLI_DERIVES.contains(&name))
+                })
+        });
+    has_clap_attribute || in_clap_type
+}
+
 fn is_bool_type(ty: &ast::Type) -> bool {
     ty.to_string().trim() == "bool"
 }
@@ -59,7 +93,10 @@ pub fn lint_negated_bool_names(source: &str) -> Vec<LintWarning> {
 
 fn find_negated_bools(node: &SyntaxNode, source: &str, warnings: &mut Vec<LintWarning>) {
     // Struct/enum record fields: `name: bool`
-    if let Some(field) = ast::RecordField::cast(node.clone()) {
+    // Skip CLI fields: `--no-foo` opt-out flags are idiomatic on the command line.
+    if let Some(field) = ast::RecordField::cast(node.clone())
+        && !is_cli_field(&field)
+    {
         check_named_bool_item(field.name(), field.ty(), "field", source, warnings);
     }
 
@@ -274,6 +311,27 @@ mod tests {
             warnings,
             vec!["static `NOT_READY` uses negation word \"NOT\"; use a positive name instead",]
         );
+    }
+
+    #[test]
+    fn test_cli_fields_are_skipped() {
+        let warnings = lint(&unindent(
+            "
+            #[derive(clap::Parser)]
+            struct Cli { no_color: bool }
+            #[derive(Subcommand)]
+            enum Command { Run { no_build: bool } }
+            #[derive(argh::FromArgs)]
+            struct Argh { no_headless: bool }
+            struct Args {
+                #[arg(long)]
+                no_open: bool,
+                no_cache: bool,
+            }
+            ",
+        ));
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].contains("no_cache"));
     }
 
     #[test]
