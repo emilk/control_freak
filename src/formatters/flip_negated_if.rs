@@ -8,7 +8,7 @@ pub fn flip_negated_ifs(source: &str) -> String {
     find_negated_ifs(&root, &mut replacements);
 
     // Apply replacements from end to start to preserve offsets
-    replacements.sort_by(|a, b| b.0.cmp(&a.0));
+    replacements.sort_by_key(|replacement| std::cmp::Reverse(replacement.0));
 
     let mut result = source.to_string();
     for (start, end, replacement) in replacements {
