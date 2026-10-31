@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use ra_ap_syntax::{
-    AstNode, TextRange, TextSize, ast,
-    ast::{HasLoopBody, HasName},
+    AstNode as _, TextRange, TextSize, ast,
+    ast::{HasLoopBody as _, HasName as _},
 };
 
 use super::{LintWarning, offset_to_line_col};
@@ -74,7 +74,7 @@ fn lint_function(
                 return None;
             }
             Some(Binding {
-                name: name.text().to_string(),
+                name: name.text().to_owned(),
                 site: pat.syntax().text_range().start(),
                 scope: scope(&pat, body)?,
                 is_mut: is_mut(&pat),

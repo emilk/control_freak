@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use ra_ap_syntax::{AstNode, SyntaxNode, ast, ast::HasName};
+use ra_ap_syntax::{AstNode as _, SyntaxNode, ast, ast::HasName as _};
 
 use super::{LintWarning, offset_to_line_col};
 

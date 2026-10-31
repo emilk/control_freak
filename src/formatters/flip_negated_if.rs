@@ -1,4 +1,4 @@
-use ra_ap_syntax::{AstNode, SyntaxNode, ast};
+use ra_ap_syntax::{AstNode as _, SyntaxNode, ast};
 
 pub fn flip_negated_ifs(source: &str) -> String {
     let parse = ra_ap_syntax::SourceFile::parse(source, ra_ap_syntax::Edition::CURRENT);
@@ -10,7 +10,7 @@ pub fn flip_negated_ifs(source: &str) -> String {
     // Apply replacements from end to start to preserve offsets
     replacements.sort_by_key(|replacement| std::cmp::Reverse(replacement.0));
 
-    let mut result = source.to_string();
+    let mut result = source.to_owned();
     for (start, end, replacement) in replacements {
         result.replace_range(start..end, &replacement);
     }
@@ -62,7 +62,7 @@ fn check_for_negation(expr: &ast::Expr) -> Option<String> {
         && let Some(lhs) = bin_expr.lhs()
         && let Some(rhs) = bin_expr.rhs()
     {
-        return Some(format!("{} == {}", lhs, rhs));
+        return Some(format!("{lhs} == {rhs}"));
     }
 
     None

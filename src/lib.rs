@@ -2,7 +2,7 @@ pub mod config;
 pub mod formatters;
 pub mod lints;
 
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use config::Config;
 use ignore::WalkBuilder;
 use std::fs;
@@ -151,7 +151,7 @@ fn format_line_numbers(lines: &[usize]) -> String {
 /// a contiguous block of changes) are left unchanged.
 pub fn format_source(source: &str) -> String {
     // Apply all formatters in sequence
-    let mut result = source.to_string();
+    let mut result = source.to_owned();
 
     result = formatters::flip_negated_ifs(&result);
 
@@ -169,7 +169,7 @@ fn restore_nolint_lines(original: &str, formatted: &str) -> String {
     let fmt_lines: Vec<&str> = formatted.lines().collect();
 
     if orig_lines.len() != fmt_lines.len() {
-        return formatted.to_string();
+        return formatted.to_owned();
     }
 
     // Find contiguous groups of changed lines (0-indexed, exclusive end)

@@ -1,4 +1,4 @@
-use ra_ap_syntax::{AstNode, ast, ast::HasName};
+use ra_ap_syntax::{AstNode as _, ast, ast::HasName as _};
 
 use super::{LintWarning, offset_to_line_col};
 

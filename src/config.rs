@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use serde::Deserialize;
 use std::fs;
 use std::path::Path;
@@ -157,13 +157,13 @@ mod tests {
     #[test]
     fn parses_lint_settings() {
         let config: Config = toml::from_str(
-            r#"
+            r"
             [lints.negated_bool_names]
             enabled = false
 
             [lints.use_destructuring]
             min_fields = 4
-            "#,
+            ",
         )
         .expect("valid configuration");
 
