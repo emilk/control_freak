@@ -16,14 +16,25 @@ control_freak src/
 
 # Apply formatting fixes
 control_freak --fix src/
+
+# Use a specific configuration file
+control_freak --config path/to/control_freak.toml src/
+
+# Create a control_freak.toml with all the defaults
+control_freak --init
 ```
+
+Run `control_freak --help` to see all lints and formatters.
 
 Without `--fix`, needed formatting changes are reported like lint warnings. Exits with code 1 if any problems are found.
 
 ## Configuration
 
-`control_freak` looks for `control_freak.toml` in the supplied file or directory,
-then in each parent directory. The closest file is used. All settings are optional:
+`control_freak` looks for `control_freak.toml` in the supplied file or directory, then in each parent directory. The closest file is used. Use `--config <FILE>` to point to a specific file instead.
+
+Run `control_freak --init` to create a `control_freak.toml` with all the defaults.
+
+All settings are optional, for example:
 
 ```toml
 [lints.max_mut_bindings]

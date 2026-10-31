@@ -1,11 +1,13 @@
 use anyhow::{Context as _, Result};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use std::fmt::Write as _;
 use std::fs;
 use std::path::Path;
 
-const CONFIG_FILE_NAME: &str = "control_freak.toml";
+/// The name of the configuration file `control_freak` looks for.
+pub const CONFIG_FILE_NAME: &str = "control_freak.toml";
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Config {
     pub lints: LintsConfig,
@@ -33,13 +35,39 @@ impl Config {
         Ok(Self::default())
     }
 
-    fn load(path: &Path) -> Result<Self> {
+    /// Load the configuration file at `path`.
+    ///
+    /// # Errors
+    /// If the configuration file can't be read, parsed, or is invalid.
+    pub fn load(path: &Path) -> Result<Self> {
         let contents = fs::read_to_string(path)
             .with_context(|| format!("Failed to read configuration: {}", path.display()))?;
         let config: Self = toml::from_str(&contents)
             .with_context(|| format!("Failed to parse configuration: {}", path.display()))?;
         config.validate(path)?;
         Ok(config)
+    }
+
+    /// The default configuration as TOML, with a comment describing each lint.
+    ///
+    /// # Errors
+    /// If the configuration can't be serialized.
+    pub fn default_toml() -> Result<String> {
+        let toml =
+            toml::to_string(&Self::default()).context("Failed to serialize configuration")?;
+        let mut text = "# Configuration for control_freak. These are the defaults.\n\n".to_owned();
+        for line in toml.lines() {
+            if let Some(name) = line
+                .strip_prefix("[lints.")
+                .and_then(|rest| rest.strip_suffix(']'))
+                && let Some(lint) = crate::lints::LINTS.iter().find(|lint| lint.name == name)
+            {
+                writeln!(text, "# {}", lint.summary).ok();
+            }
+            text += line;
+            text += "\n";
+        }
+        Ok(text)
     }
 
     fn validate(&self, path: &Path) -> Result<()> {
@@ -53,7 +81,7 @@ impl Config {
     }
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct LintsConfig {
     pub max_mut_bindings: MaxMutBindingsConfig,
@@ -63,7 +91,7 @@ pub struct LintsConfig {
     pub use_destructuring: UseDestructuringConfig,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct LintConfig {
     pub enabled: bool,
@@ -75,7 +103,7 @@ impl Default for LintConfig {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct MaxMutBindingsConfig {
     pub enabled: bool,
@@ -91,7 +119,7 @@ impl Default for MaxMutBindingsConfig {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct MaxStructFieldsConfig {
     pub enabled: bool,
@@ -107,7 +135,7 @@ impl Default for MaxStructFieldsConfig {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct MaxVisibleBindingsConfig {
     pub enabled: bool,
@@ -123,7 +151,7 @@ impl Default for MaxVisibleBindingsConfig {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct UseDestructuringConfig {
     pub enabled: bool,
@@ -155,6 +183,20 @@ mod tests {
         assert!(config.lints.negated_bool_names.enabled);
         assert!(config.lints.use_destructuring.enabled);
         assert_eq!(config.lints.use_destructuring.min_fields, 3);
+    }
+
+    #[test]
+    fn default_toml_round_trips_and_documents_every_lint() -> Result<()> {
+        let text = Config::default_toml()?;
+        let parsed: Config = toml::from_str(&text)?;
+        assert_eq!(
+            toml::to_string(&parsed)?,
+            toml::to_string(&Config::default())?
+        );
+        for lint in crate::lints::LINTS {
+            assert!(text.contains(&format!("# {}\n[lints.{}]", lint.summary, lint.name)));
+        }
+        Ok(())
     }
 
     #[test]

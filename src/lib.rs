@@ -26,15 +26,22 @@ pub struct RuleInfo {
 /// # Errors
 /// If a path can't be read or written, or the configuration is invalid.
 pub fn format_path(path: &Path, fix: bool) -> Result<usize> {
+    let config = Config::load_for_path(path)?;
+    format_path_with_config(&config, path, fix)
+}
+
+/// Like [`format_path`], but with an explicit `config`.
+///
+/// # Errors
+/// If a path can't be read or written.
+pub fn format_path_with_config(config: &Config, path: &Path, fix: bool) -> Result<usize> {
     let metadata =
         fs::metadata(path).with_context(|| format!("Failed to access path: {}", path.display()))?;
 
-    let config = Config::load_for_path(path)?;
-
     if metadata.is_file() {
-        format_file_with_config(path, fix, &config)
+        format_file_with_config(path, fix, config)
     } else if metadata.is_dir() {
-        format_directory_with_config(path, fix, &config)
+        format_directory_with_config(path, fix, config)
     } else {
         anyhow::bail!("Path is neither a file nor a directory: {}", path.display());
     }
