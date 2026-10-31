@@ -158,6 +158,14 @@ mod tests {
     }
 
     #[test]
+    fn every_lint_has_a_config_section() {
+        for lint in crate::lints::LINTS {
+            let toml = format!("[lints.{}]\nenabled = false\n", lint.name);
+            assert!(toml::from_str::<Config>(&toml).is_ok(), "{}", lint.name);
+        }
+    }
+
+    #[test]
     fn parses_lint_settings() {
         let config: Config = toml::from_str(
             r"

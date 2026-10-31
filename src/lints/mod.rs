@@ -8,6 +8,32 @@ pub use max_visible_bindings::{lint_max_mut_bindings, lint_max_visible_bindings}
 pub use negated_bool_names::lint_negated_bool_names;
 pub use use_destructuring::{lint_use_destructuring, lint_use_destructuring_with_min_fields};
 
+use crate::RuleInfo;
+
+/// All lints, sorted by name.
+pub const LINTS: &[RuleInfo] = &[
+    RuleInfo {
+        name: "max_mut_bindings",
+        summary: "Too many mutable bindings visible at once in a function",
+    },
+    RuleInfo {
+        name: "max_struct_fields",
+        summary: "Structs with too many fields",
+    },
+    RuleInfo {
+        name: "max_visible_bindings",
+        summary: "Too many bindings visible at once in a function",
+    },
+    RuleInfo {
+        name: "negated_bool_names",
+        summary: "Boolean names with negation words, like `is_disabled`",
+    },
+    RuleInfo {
+        name: "use_destructuring",
+        summary: "Methods that access every field of `self` one by one",
+    },
+];
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct LintWarning {
     pub line: usize,

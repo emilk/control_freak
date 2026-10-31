@@ -8,6 +8,15 @@ use ignore::WalkBuilder;
 use std::fs;
 use std::path::Path;
 
+/// Name and summary of a lint or formatter, as shown in `--help`.
+pub struct RuleInfo {
+    /// Same as the name of the lint's section in `control_freak.toml`.
+    pub name: &'static str,
+
+    /// One-line summary.
+    pub summary: &'static str,
+}
+
 /// Format and lint a single file or all Rust files in a directory.
 ///
 /// When `fix` is true, formatting changes are written back to the files.
