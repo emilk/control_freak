@@ -23,7 +23,6 @@ const NEGATION_WORDS: &[&str] = &[
     "unloaded",
     "unreachable",
     "unusable",
-    "without",
 ];
 
 /// Deriving any of these makes a type part of a CLI (clap or argh).
@@ -394,11 +393,10 @@ mod tests {
                 never_show: bool,
                 no_wrap: bool,
                 not_ready: bool,
-                without_border: bool,
             }
             ",
         ));
-        assert_eq!(warnings.len(), 9);
+        assert_eq!(warnings.len(), 8);
     }
 
     #[test]
