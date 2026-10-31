@@ -1,7 +1,15 @@
 [package]
 name = "control_freak"
 version = "0.1.0"
+authors = ["rerun.io <opensource@rerun.io>"]
+categories = ["command-line-utilities", "development-tools"]
+description = "An opinionated Rust source code formatter and linter"
 edition = "2024"
+homepage = "https://github.com/emilk/control_freak"
+include = ["LICENSE-APACHE", "LICENSE-MIT", "**/*.rs", "Cargo.toml"]
+keywords = ["formatter", "linter", "rust"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/emilk/control_freak"
 rust-version = "1.98"
 
 [dependencies]
@@ -49,6 +57,8 @@ missing_crate_level_docs = "warn"
 all = { level = "warn", priority = -1 }
 cargo = { level = "warn", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
+
+multiple_crate_versions = "allow" # ra_ap_syntax pulls in older winnow, rustc-hash, and hashbrown
 
 allow_attributes = "warn"
 as_ptr_cast_mut = "warn"
