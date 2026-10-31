@@ -16,9 +16,9 @@ struct Cli {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
-    let num_warnings = format_path(&cli.path, cli.fix)?;
+    let num_problems = format_path(&cli.path, cli.fix)?;
 
-    if num_warnings > 0 {
+    if num_problems > 0 {
         std::process::exit(1);
     }
 

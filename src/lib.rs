@@ -11,7 +11,8 @@ use std::path::Path;
 /// Format and lint a single file or all Rust files in a directory.
 ///
 /// When `fix` is true, formatting changes are written back to the files.
-/// Returns the number of lint warnings found.
+/// Returns the number of problems found: lint warnings, plus needed formatting
+/// changes unless `fix` is true.
 ///
 /// # Errors
 /// If a path can't be read or written, or the configuration is invalid.
@@ -33,7 +34,8 @@ pub fn format_path(path: &Path, fix: bool) -> Result<usize> {
 /// Format and lint all Rust files in a directory, respecting .gitignore.
 ///
 /// When `fix` is true, formatting changes are written back to the files.
-/// Returns the number of lint warnings found.
+/// Returns the number of problems found: lint warnings, plus needed formatting
+/// changes unless `fix` is true.
 ///
 /// # Errors
 /// If a file can't be read or written, or the configuration is invalid.
@@ -47,27 +49,28 @@ fn format_directory_with_config(dir: &Path, fix: bool, config: &Config) -> Resul
     let walker = WalkBuilder::new(dir).standard_filters(true).build();
 
     let mut num_files = 0;
-    let mut num_warnings = 0;
+    let mut num_problems = 0;
 
     for entry in walker {
         let entry = entry?;
         let path = entry.path();
 
         if path.is_file() && path.extension().is_some_and(|ext| ext == "rs") {
-            num_warnings += format_file_with_config(path, fix, config)?;
+            num_problems += format_file_with_config(path, fix, config)?;
             num_files += 1;
         }
     }
 
     println!("Processed {num_files} files");
 
-    Ok(num_warnings)
+    Ok(num_problems)
 }
 
 /// Format and lint a single Rust file.
 ///
 /// When `fix` is true, formatting changes are written back to the files.
-/// Returns the number of lint warnings found.
+/// Returns the number of problems found: lint warnings, plus needed formatting
+/// changes unless `fix` is true.
 ///
 /// # Errors
 /// If the file can't be read or written, or the configuration is invalid.
@@ -83,75 +86,76 @@ fn format_file_with_config(path: &Path, fix: bool, config: &Config) -> Result<us
 
     let formatted = format_source(&content);
 
-    if formatted != content {
-        if fix {
+    let mut problems = if fix {
+        if formatted != content {
             fs::write(path, &formatted)
                 .with_context(|| format!("Failed to write file: {}", path.display()))?;
             println!("  Modified: {}", path.display());
-        } else {
-            let changed_lines = changed_line_numbers(&content, &formatted);
-            println!(
-                "  Would modify: {} (line{}{})",
-                path.display(),
-                if changed_lines.len() == 1 { " " } else { "s " },
-                format_line_numbers(&changed_lines),
-            );
         }
+        lint_source_with_config(&formatted, config)
+    } else {
+        let mut problems = formatting_problems(&content, &formatted);
+        problems.extend(lint_source_with_config(&content, config));
+        problems
+    };
+    problems.sort_by_key(|problem| (problem.line, problem.col));
+
+    for problem in &problems {
+        let lints::LintWarning { line, col, message } = problem;
+        eprintln!("  {}:{line}:{col}: {message}", path.display());
     }
 
-    let warnings = lint_source_with_config(&formatted, config);
-    for w in &warnings {
-        eprintln!("  {}:{}:{}: {}", path.display(), w.line, w.col, w.message);
-    }
-
-    Ok(warnings.len())
+    Ok(problems.len())
 }
 
-fn changed_line_numbers(old: &str, new: &str) -> Vec<usize> {
+/// One warning per changed region between `old` and `new`.
+fn formatting_problems(old: &str, new: &str) -> Vec<lints::LintWarning> {
     let old_lines: Vec<&str> = old.lines().collect();
     let new_lines: Vec<&str> = new.lines().collect();
-    let mut changed = Vec::new();
 
-    let max_len = old_lines.len().max(new_lines.len());
-    for i in 0..max_len {
-        let old_line = old_lines.get(i).copied();
-        let new_line = new_lines.get(i).copied();
-        if old_line != new_line {
-            changed.push(i + 1);
-        }
-    }
-
-    changed
+    changed_regions(&old_lines, &new_lines)
+        .into_iter()
+        .map(|(start, end)| {
+            let lines = if start + 1 == end {
+                format!("line {end}")
+            } else {
+                format!("lines {}-{end}", start + 1)
+            };
+            lints::LintWarning {
+                line: start + 1,
+                col: 1,
+                message: format!("formatting needed ({lines}); run with `--fix` to apply"),
+            }
+        })
+        .collect()
 }
 
-fn format_line_numbers(lines: &[usize]) -> String {
-    if lines.is_empty() {
-        return String::new();
-    }
-
-    // Group consecutive line numbers into ranges
-    let mut parts = Vec::new();
-    let mut start = lines[0];
-    let mut end = lines[0];
-
-    for &line in &lines[1..] {
-        if end + 1 < line {
-            parts.push(if start == end {
-                format!("{start}")
-            } else {
-                format!("{start}-{end}")
-            });
-            start = line;
+/// Line ranges (0-based, exclusive end) that differ between `old` and `new`.
+///
+/// Changes separated by a single unchanged line are merged into one region,
+/// so that e.g. `} else {` between two changed blocks stays together.
+fn changed_regions(old: &[&str], new: &[&str]) -> Vec<(usize, usize)> {
+    let mut regions: Vec<(usize, usize)> = Vec::new();
+    let num_lines = old.len().max(new.len());
+    let mut line = 0;
+    while line < num_lines {
+        if old.get(line) == new.get(line) {
+            line += 1;
+            continue;
         }
-        end = line;
+        let start = line;
+        while line < num_lines && old.get(line) != new.get(line) {
+            line += 1;
+        }
+        if let Some(last) = regions.last_mut()
+            && start <= last.1 + 1
+        {
+            last.1 = line;
+        } else {
+            regions.push((start, line));
+        }
     }
-    parts.push(if start == end {
-        format!("{start}")
-    } else {
-        format!("{start}-{end}")
-    });
-
-    parts.join(", ")
+    regions
 }
 
 /// Format Rust source code by applying all formatters.
@@ -169,10 +173,8 @@ pub fn format_source(source: &str) -> String {
     restore_nolint_lines(source, &result)
 }
 
-/// Compare original and formatted line-by-line. Merge nearby change groups
-/// into regions (a single `} else {` line between two changed blocks is part
-/// of the same construct). If the original has `// NOLINT` on or above the
-/// first line of a region, restore the entire region from the original.
+/// If the original has `// NOLINT` on or above the first line of a changed
+/// region, restore the entire region from the original.
 fn restore_nolint_lines(original: &str, formatted: &str) -> String {
     let orig_lines: Vec<&str> = original.lines().collect();
     let fmt_lines: Vec<&str> = formatted.lines().collect();
@@ -181,36 +183,7 @@ fn restore_nolint_lines(original: &str, formatted: &str) -> String {
         return formatted.to_owned();
     }
 
-    // Find contiguous groups of changed lines (0-indexed, exclusive end)
-    let mut groups: Vec<(usize, usize)> = Vec::new();
-    {
-        let mut i = 0;
-        while i < orig_lines.len() {
-            if orig_lines[i] == fmt_lines[i] {
-                i += 1;
-            } else {
-                let start = i;
-                while i < orig_lines.len() && orig_lines[i] != fmt_lines[i] {
-                    i += 1;
-                }
-                groups.push((start, i));
-            }
-        }
-    }
-
-    // Merge groups separated by at most 1 unchanged line into regions,
-    // so that e.g. `} else {` between two changed blocks stays together.
-    let mut regions: Vec<(usize, usize)> = Vec::new();
-    for group in groups {
-        if let Some(last) = regions.last_mut()
-            && group.0 <= last.1 + 2
-        {
-            last.1 = group.1;
-            continue;
-        }
-        regions.push(group);
-    }
-
+    let regions = changed_regions(&orig_lines, &fmt_lines);
     let mut result_lines = fmt_lines;
     for (start, end) in regions {
         if is_nolint(&orig_lines, start + 1) {
@@ -347,6 +320,28 @@ mod tests {
         config.lints.use_destructuring.enabled = false;
 
         assert!(lint_source_with_config(&source, &config).is_empty());
+    }
+
+    #[test]
+    fn formatting_problems_reports_each_changed_range() {
+        let lines = |problems: Vec<lints::LintWarning>| {
+            problems
+                .into_iter()
+                .map(|problem| problem.to_string())
+                .collect::<Vec<_>>()
+        };
+        assert!(formatting_problems("a\nb\n", "a\nb\n").is_empty());
+        assert_eq!(
+            lines(formatting_problems("a\nb\nc\nd\ne\n", "x\nb\nc\ny\nz\nw\n")),
+            vec![
+                "1:1: formatting needed (line 1); run with `--fix` to apply",
+                "4:1: formatting needed (lines 4-6); run with `--fix` to apply",
+            ]
+        );
+        assert_eq!(
+            lines(formatting_problems("a\nb\nc\n", "x\nb\ny\n")),
+            vec!["1:1: formatting needed (lines 1-3); run with `--fix` to apply"]
+        );
     }
 
     #[test]

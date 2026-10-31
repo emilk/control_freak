@@ -18,7 +18,7 @@ control_freak src/
 control_freak --fix src/
 ```
 
-Exits with code 1 if any lint warnings are found.
+Without `--fix`, needed formatting changes are reported like lint warnings. Exits with code 1 if any problems are found.
 
 ## Configuration
 
