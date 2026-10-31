@@ -1,5 +1,6 @@
 pub mod config;
 pub mod formatters;
+mod generated;
 pub mod lints;
 
 use anyhow::{Context as _, Result};
@@ -63,8 +64,10 @@ pub fn format_directory(dir: &Path, fix: bool) -> Result<usize> {
 #[expect(clippy::print_stdout, reason = "CLI output")]
 fn format_directory_with_config(dir: &Path, fix: bool, config: &Config) -> Result<usize> {
     let walker = WalkBuilder::new(dir).standard_filters(true).build();
+    let mut generated_files = generated::GeneratedFiles::default();
 
     let mut num_files = 0;
+    let mut num_generated = 0;
     let mut num_problems = 0;
 
     for entry in walker {
@@ -72,12 +75,20 @@ fn format_directory_with_config(dir: &Path, fix: bool, config: &Config) -> Resul
         let path = entry.path();
 
         if path.is_file() && path.extension().is_some_and(|ext| ext == "rs") {
+            if config.skip_generated && generated_files.is_generated(path) {
+                num_generated += 1;
+                continue;
+            }
             num_problems += format_file_with_config(path, fix, config)?;
             num_files += 1;
         }
     }
 
-    println!("Processed {num_files} files");
+    if num_generated == 0 {
+        println!("Processed {num_files} files");
+    } else {
+        println!("Processed {num_files} files (skipped {num_generated} generated)");
+    }
 
     Ok(num_problems)
 }

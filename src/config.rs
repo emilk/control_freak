@@ -7,10 +7,24 @@ use std::path::Path;
 /// The name of the configuration file `control_freak` looks for.
 pub const CONFIG_FILE_NAME: &str = "control_freak.toml";
 
-#[derive(Debug, Default, Deserialize, Serialize)]
+/// Contents of `control_freak.toml`.
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Config {
+    /// Skip files marked `linguist-generated` in `.gitattributes` when walking directories.
+    pub skip_generated: bool,
+
+    /// Settings for each lint.
     pub lints: LintsConfig,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            skip_generated: true,
+            lints: LintsConfig::default(),
+        }
+    }
 }
 
 impl Config {
@@ -60,6 +74,9 @@ impl Config {
             env!("CARGO_PKG_REPOSITORY"),
         );
         for line in toml.lines() {
+            if line.starts_with("skip_generated =") {
+                text += "# Skip files marked `linguist-generated` in `.gitattributes`\n";
+            }
             if let Some(name) = line
                 .strip_prefix("[lints.")
                 .and_then(|rest| rest.strip_suffix(']'))
@@ -177,6 +194,7 @@ mod tests {
     #[test]
     fn defaults_enable_all_lints() {
         let config = Config::default();
+        assert!(config.skip_generated);
         assert!(config.lints.max_mut_bindings.enabled);
         assert_eq!(config.lints.max_mut_bindings.max_bindings, 4);
         assert!(config.lints.max_struct_fields.enabled);
