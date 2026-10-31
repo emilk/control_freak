@@ -8,14 +8,14 @@ cargo install --path .
 
 ## Usage
 ```sh
-# Format and lint a single file
+# Check a single file
 control_freak src/main.rs
 
-# Format and lint an entire directory (respects .gitignore)
+# Check an entire directory (respects .gitignore)
 control_freak src/
 
-# Check without modifying any files
-control_freak --dry-run src/
+# Apply formatting fixes
+control_freak --fix src/
 ```
 
 Exits with code 1 if any lint warnings are found.

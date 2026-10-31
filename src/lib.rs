@@ -10,21 +10,21 @@ use std::path::Path;
 
 /// Format and lint a single file or all Rust files in a directory.
 ///
-/// When `dry_run` is true, no files are written.
+/// When `fix` is true, formatting changes are written back to the files.
 /// Returns the number of lint warnings found.
 ///
 /// # Errors
 /// If a path can't be read or written, or the configuration is invalid.
-pub fn format_path(path: &Path, dry_run: bool) -> Result<usize> {
+pub fn format_path(path: &Path, fix: bool) -> Result<usize> {
     let metadata =
         fs::metadata(path).with_context(|| format!("Failed to access path: {}", path.display()))?;
 
     let config = Config::load_for_path(path)?;
 
     if metadata.is_file() {
-        format_file_with_config(path, dry_run, &config)
+        format_file_with_config(path, fix, &config)
     } else if metadata.is_dir() {
-        format_directory_with_config(path, dry_run, &config)
+        format_directory_with_config(path, fix, &config)
     } else {
         anyhow::bail!("Path is neither a file nor a directory: {}", path.display());
     }
@@ -32,18 +32,18 @@ pub fn format_path(path: &Path, dry_run: bool) -> Result<usize> {
 
 /// Format and lint all Rust files in a directory, respecting .gitignore.
 ///
-/// When `dry_run` is true, no files are written.
+/// When `fix` is true, formatting changes are written back to the files.
 /// Returns the number of lint warnings found.
 ///
 /// # Errors
 /// If a file can't be read or written, or the configuration is invalid.
-pub fn format_directory(dir: &Path, dry_run: bool) -> Result<usize> {
+pub fn format_directory(dir: &Path, fix: bool) -> Result<usize> {
     let config = Config::load_for_path(dir)?;
-    format_directory_with_config(dir, dry_run, &config)
+    format_directory_with_config(dir, fix, &config)
 }
 
 #[expect(clippy::print_stdout, reason = "CLI output")]
-fn format_directory_with_config(dir: &Path, dry_run: bool, config: &Config) -> Result<usize> {
+fn format_directory_with_config(dir: &Path, fix: bool, config: &Config) -> Result<usize> {
     let walker = WalkBuilder::new(dir).standard_filters(true).build();
 
     let mut num_files = 0;
@@ -54,7 +54,7 @@ fn format_directory_with_config(dir: &Path, dry_run: bool, config: &Config) -> R
         let path = entry.path();
 
         if path.is_file() && path.extension().is_some_and(|ext| ext == "rs") {
-            num_warnings += format_file_with_config(path, dry_run, config)?;
+            num_warnings += format_file_with_config(path, fix, config)?;
             num_files += 1;
         }
     }
@@ -66,25 +66,29 @@ fn format_directory_with_config(dir: &Path, dry_run: bool, config: &Config) -> R
 
 /// Format and lint a single Rust file.
 ///
-/// When `dry_run` is true, no files are written.
+/// When `fix` is true, formatting changes are written back to the files.
 /// Returns the number of lint warnings found.
 ///
 /// # Errors
 /// If the file can't be read or written, or the configuration is invalid.
-pub fn format_file(path: &Path, dry_run: bool) -> Result<usize> {
+pub fn format_file(path: &Path, fix: bool) -> Result<usize> {
     let config = Config::load_for_path(path)?;
-    format_file_with_config(path, dry_run, &config)
+    format_file_with_config(path, fix, &config)
 }
 
 #[expect(clippy::print_stdout, clippy::print_stderr, reason = "CLI output")]
-fn format_file_with_config(path: &Path, dry_run: bool, config: &Config) -> Result<usize> {
+fn format_file_with_config(path: &Path, fix: bool, config: &Config) -> Result<usize> {
     let content = fs::read_to_string(path)
         .with_context(|| format!("Failed to read file: {}", path.display()))?;
 
     let formatted = format_source(&content);
 
     if formatted != content {
-        if dry_run {
+        if fix {
+            fs::write(path, &formatted)
+                .with_context(|| format!("Failed to write file: {}", path.display()))?;
+            println!("  Modified: {}", path.display());
+        } else {
             let changed_lines = changed_line_numbers(&content, &formatted);
             println!(
                 "  Would modify: {} (line{}{})",
@@ -92,10 +96,6 @@ fn format_file_with_config(path: &Path, dry_run: bool, config: &Config) -> Resul
                 if changed_lines.len() == 1 { " " } else { "s " },
                 format_line_numbers(&changed_lines),
             );
-        } else {
-            fs::write(path, &formatted)
-                .with_context(|| format!("Failed to write file: {}", path.display()))?;
-            println!("  Modified: {}", path.display());
         }
     }
 

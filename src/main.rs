@@ -9,14 +9,14 @@ struct Cli {
     /// File or directory to process
     path: PathBuf,
 
-    /// Only check and report; do not modify any files
+    /// Apply formatting fixes to the files (by default, only report them)
     #[arg(long)]
-    dry_run: bool,
+    fix: bool,
 }
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
-    let num_warnings = format_path(&cli.path, cli.dry_run)?;
+    let num_warnings = format_path(&cli.path, cli.fix)?;
 
     if num_warnings > 0 {
         std::process::exit(1);
