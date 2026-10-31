@@ -9,7 +9,7 @@ clap = { version = "4.6", features = ["derive"] }
 ignore = "0.4.33"
 ra_ap_syntax = "0.0.331" # Newer releases require Rust 1.95.
 serde = { version = "1.0", features = ["derive"] }
-toml = "0.9"
+toml = "1.1"
 
 [dev-dependencies]
 insta = "1.49"
