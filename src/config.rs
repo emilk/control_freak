@@ -55,7 +55,10 @@ impl Config {
     pub fn default_toml() -> Result<String> {
         let toml =
             toml::to_string(&Self::default()).context("Failed to serialize configuration")?;
-        let mut text = "# Configuration for control_freak. These are the defaults.\n\n".to_owned();
+        let mut text = format!(
+            "# Configuration for control_freak: {}\n# These are the defaults.\n\n",
+            env!("CARGO_PKG_REPOSITORY"),
+        );
         for line in toml.lines() {
             if let Some(name) = line
                 .strip_prefix("[lints.")
