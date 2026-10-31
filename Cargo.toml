@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1.0"
-clap = { version = "4", features = ["derive"] }
+clap = { version = "4.6", features = ["derive"] }
 ignore = "0.4.33"
 ra_ap_syntax = "0.0.331" # Newer releases require Rust 1.95.
 serde = { version = "1.0", features = ["derive"] }
