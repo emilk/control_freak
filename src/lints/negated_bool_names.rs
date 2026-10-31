@@ -60,18 +60,18 @@ pub fn lint_negated_bool_names(source: &str) -> Vec<LintWarning> {
 fn find_negated_bools(node: &SyntaxNode, source: &str, warnings: &mut Vec<LintWarning>) {
     // Struct/enum record fields: `name: bool`
     if let Some(field) = ast::RecordField::cast(node.clone()) {
-        check_named_bool_item(&field.name(), &field.ty(), "field", source, warnings);
+        check_named_bool_item(field.name(), field.ty(), "field", source, warnings);
     }
 
     // Function/method definitions: `fn name() -> bool`
     if let Some(func) = ast::Fn::cast(node.clone()) {
         let ret_ty = func.ret_type().and_then(|r| r.ty());
-        check_named_bool_item(&func.name(), &ret_ty, "function", source, warnings);
+        check_named_bool_item(func.name(), ret_ty, "function", source, warnings);
     }
 
     // Constants: `const NAME: bool = ...`
     if let Some(konst) = ast::Const::cast(node.clone()) {
-        check_named_bool_item(&konst.name(), &konst.ty(), "constant", source, warnings);
+        check_named_bool_item(konst.name(), konst.ty(), "constant", source, warnings);
     }
 
     // Function parameters: `fn foo(disabled: bool)`
@@ -79,18 +79,12 @@ fn find_negated_bools(node: &SyntaxNode, source: &str, warnings: &mut Vec<LintWa
         && let Some(pat) = param.pat()
         && let Some(ident_pat) = ast::IdentPat::cast(pat.syntax().clone())
     {
-        check_named_bool_item(
-            &ident_pat.name(),
-            &param.ty(),
-            "parameter",
-            source,
-            warnings,
-        );
+        check_named_bool_item(ident_pat.name(), param.ty(), "parameter", source, warnings);
     }
 
     // Statics: `static NAME: bool = ...`
     if let Some(stat) = ast::Static::cast(node.clone()) {
-        check_named_bool_item(&stat.name(), &stat.ty(), "static", source, warnings);
+        check_named_bool_item(stat.name(), stat.ty(), "static", source, warnings);
     }
 
     for child in node.children() {
@@ -99,15 +93,15 @@ fn find_negated_bools(node: &SyntaxNode, source: &str, warnings: &mut Vec<LintWa
 }
 
 fn check_named_bool_item(
-    name: &Option<ast::Name>,
-    ty: &Option<ast::Type>,
+    name: Option<ast::Name>,
+    ty: Option<ast::Type>,
     kind: &str,
     source: &str,
     warnings: &mut Vec<LintWarning>,
 ) {
     let Some(name) = name else { return };
     let Some(ty) = ty else { return };
-    if !is_bool_type(ty) {
+    if !is_bool_type(&ty) {
         return;
     }
     let name_str = name.to_string();

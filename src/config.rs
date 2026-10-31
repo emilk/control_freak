@@ -13,6 +13,9 @@ pub struct Config {
 
 impl Config {
     /// Load the closest `control_freak.toml` at or above `path`.
+    ///
+    /// # Errors
+    /// If the configuration file can't be read, parsed, or is invalid.
     pub fn load_for_path(path: &Path) -> Result<Self> {
         let start = if path.is_dir() {
             path

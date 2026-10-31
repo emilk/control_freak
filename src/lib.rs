@@ -12,6 +12,9 @@ use std::path::Path;
 ///
 /// When `dry_run` is true, no files are written.
 /// Returns the number of lint warnings found.
+///
+/// # Errors
+/// If a path can't be read or written, or the configuration is invalid.
 pub fn format_path(path: &Path, dry_run: bool) -> Result<usize> {
     let metadata =
         fs::metadata(path).with_context(|| format!("Failed to access path: {}", path.display()))?;
@@ -31,11 +34,15 @@ pub fn format_path(path: &Path, dry_run: bool) -> Result<usize> {
 ///
 /// When `dry_run` is true, no files are written.
 /// Returns the number of lint warnings found.
+///
+/// # Errors
+/// If a file can't be read or written, or the configuration is invalid.
 pub fn format_directory(dir: &Path, dry_run: bool) -> Result<usize> {
     let config = Config::load_for_path(dir)?;
     format_directory_with_config(dir, dry_run, &config)
 }
 
+#[expect(clippy::print_stdout, reason = "CLI output")]
 fn format_directory_with_config(dir: &Path, dry_run: bool, config: &Config) -> Result<usize> {
     let walker = WalkBuilder::new(dir).standard_filters(true).build();
 
@@ -61,11 +68,15 @@ fn format_directory_with_config(dir: &Path, dry_run: bool, config: &Config) -> R
 ///
 /// When `dry_run` is true, no files are written.
 /// Returns the number of lint warnings found.
+///
+/// # Errors
+/// If the file can't be read or written, or the configuration is invalid.
 pub fn format_file(path: &Path, dry_run: bool) -> Result<usize> {
     let config = Config::load_for_path(path)?;
     format_file_with_config(path, dry_run, &config)
 }
 
+#[expect(clippy::print_stdout, clippy::print_stderr, reason = "CLI output")]
 fn format_file_with_config(path: &Path, dry_run: bool, config: &Config) -> Result<usize> {
     let content = fs::read_to_string(path)
         .with_context(|| format!("Failed to read file: {}", path.display()))?;
@@ -124,17 +135,15 @@ fn format_line_numbers(lines: &[usize]) -> String {
     let mut end = lines[0];
 
     for &line in &lines[1..] {
-        if line == end + 1 {
-            end = line;
-        } else {
+        if end + 1 < line {
             parts.push(if start == end {
                 format!("{start}")
             } else {
                 format!("{start}-{end}")
             });
             start = line;
-            end = line;
         }
+        end = line;
     }
     parts.push(if start == end {
         format!("{start}")

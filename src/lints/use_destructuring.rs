@@ -133,7 +133,7 @@ fn lint_function(
         if is_assignment_target(&field) {
             mutates_field = true;
         }
-        first_access.get_or_insert(field.syntax().text_range().start());
+        first_access.get_or_insert_with(|| field.syntax().text_range().start());
         accessed_fields.insert(name);
     }
 
