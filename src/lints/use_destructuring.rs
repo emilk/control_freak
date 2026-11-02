@@ -15,6 +15,9 @@ struct StructInfo {
 
     /// Has `#[derive(Copy)]`.
     is_copy: bool,
+
+    /// Has an `impl Drop`, so its fields can't be moved out.
+    implements_drop: bool,
 }
 
 /// Does the binding own the value, or only borrow it?
@@ -58,6 +61,17 @@ pub fn lint_use_destructuring(source: &str, config: &UseDestructuringConfig) -> 
 
 /// The structs defined in the file, by name.
 fn structs(root: &SyntaxNode) -> BTreeMap<String, StructInfo> {
+    let dropped_types: BTreeSet<String> = root
+        .descendants()
+        .filter_map(ast::Impl::cast)
+        .filter(|imp| {
+            imp.trait_().is_some_and(|tr| {
+                tr.syntax().text().to_string().rsplit("::").next() == Some("Drop")
+            })
+        })
+        .filter_map(|imp| impl_type_name(&imp))
+        .collect();
+
     root.descendants()
         .filter_map(ast::Struct::cast)
         .filter_map(|item| {
@@ -83,7 +97,15 @@ fn structs(root: &SyntaxNode) -> BTreeMap<String, StructInfo> {
                         .split(|c: char| !c.is_alphanumeric() && c != '_')
                         .any(|derive| derive == "Copy")
                 });
-            Some((name, StructInfo { fields, is_copy }))
+            let implements_drop = dropped_types.contains(&name);
+            Some((
+                name,
+                StructInfo {
+                    fields,
+                    is_copy,
+                    implements_drop,
+                },
+            ))
         })
         .collect()
 }
@@ -248,7 +270,14 @@ fn lint_target(
         ownership,
         scope,
     } = target;
-    let StructInfo { fields, is_copy } = structs.get(type_name)?;
+    let StructInfo {
+        fields,
+        is_copy,
+        implements_drop,
+    } = structs.get(type_name)?;
+    if *ownership == Ownership::Owned && *implements_drop {
+        return None; // Can't move fields out of a `Drop` type
+    }
     // Dropping a `Copy` value is harmless, so treat it like a borrow.
     let (min_fields, max_missing_fields) = match ownership {
         Ownership::Owned if !is_copy => (config.owned.min_fields, config.owned.max_missing_fields),
@@ -658,5 +687,17 @@ mod tests {
                 "field `name` of `Builder` is never used; consider destructuring to make that explicit: `let Builder { config, name: _, size } = self;`",
             ]
         );
+    }
+
+    #[test]
+    fn skips_consuming_drop_types() {
+        let warnings = lint(&unindent(
+            "
+            struct Guard { a: u32, b: u32 }
+            impl Drop for Guard { fn drop(&mut self) {} }
+            impl Guard { fn into_sum(self) -> u32 { self.a + self.b } }
+            ",
+        ));
+        assert!(warnings.is_empty(), "{warnings:#?}");
     }
 }
