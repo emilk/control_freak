@@ -220,7 +220,7 @@ pub struct OwnedDestructuringConfig {
 impl Default for OwnedDestructuringConfig {
     fn default() -> Self {
         Self {
-            min_fields: 3,
+            min_fields: 2,
             max_missing_fields: 1,
         }
     }
@@ -244,7 +244,7 @@ mod tests {
         assert!(config.lints.negated_bool_names.enabled);
         assert!(config.lints.use_destructuring.enabled);
         assert_eq!(config.lints.use_destructuring.min_fields, 3);
-        assert_eq!(config.lints.use_destructuring.owned.min_fields, 3);
+        assert_eq!(config.lints.use_destructuring.owned.min_fields, 2);
         assert_eq!(config.lints.use_destructuring.owned.max_missing_fields, 1);
     }
 
