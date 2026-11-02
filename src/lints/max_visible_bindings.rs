@@ -149,7 +149,7 @@ fn is_mut_ref(ty: &ast::Type) -> bool {
 }
 
 /// The range in which the binding `pat` is visible.
-fn scope(pat: &ast::IdentPat, fn_body: TextRange) -> Option<TextRange> {
+pub(super) fn scope(pat: &ast::IdentPat, fn_body: TextRange) -> Option<TextRange> {
     for node in pat.syntax().ancestors().skip(1) {
         if let Some(param) = ast::Param::cast(node.clone()) {
             let owner = param.syntax().parent()?.parent()?;

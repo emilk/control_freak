@@ -5,7 +5,7 @@ use ra_ap_syntax::{
     ast::{HasAttrs as _, HasName as _},
 };
 
-use super::{LintWarning, offset_to_line_col};
+use super::{LintWarning, max_visible_bindings, offset_to_line_col};
 use crate::config::UseDestructuringConfig;
 
 /// A struct defined in the linted file.
@@ -258,7 +258,9 @@ fn lint_target(
         return None;
     }
 
-    let (accessed_fields, first_access) = field_reads(function, target, fields)?;
+    let reads = field_reads(function, target, fields)?;
+    let accessed_fields: BTreeSet<String> = reads.keys().cloned().collect();
+    let first_access = reads.values().flatten().min().copied()?;
 
     // Macro arguments aren't parsed, so we can't tell how the value is used there.
     // A struct literal without `..` already makes the compiler point out new fields.
@@ -276,16 +278,7 @@ fn lint_target(
         return None;
     }
 
-    // Destructuring must not shadow other bindings, and the target must not be shadowed.
-    let has_name_clash = function
-        .syntax()
-        .descendants()
-        .filter_map(ast::IdentPat::cast)
-        .filter_map(|pat| Some((pat.name()?.to_string(), pat.syntax().text_range())))
-        .any(|(binding, range)| {
-            (binding == *name && scope.contains_range(range)) || accessed_fields.contains(&binding)
-        });
-    if has_name_clash {
+    if has_name_clash(function, target, &reads) {
         return None;
     }
 
@@ -298,17 +291,51 @@ fn lint_target(
     })
 }
 
-/// The fields of `target` that are read, and where the first read is.
+/// Would destructuring `target` change what a name refers to?
+///
+/// That happens if `target` itself is shadowed, or if another binding named like a field
+/// is visible where that field is read.
+fn has_name_clash(
+    function: &ast::Fn,
+    target: &Target,
+    reads: &BTreeMap<String, Vec<TextSize>>,
+) -> bool {
+    let Target { name, scope, .. } = target;
+    let Some(body) = function.body() else {
+        return true;
+    };
+    let body = body.syntax().text_range();
+    function
+        .syntax()
+        .descendants()
+        .filter_map(ast::IdentPat::cast)
+        .any(|pat| {
+            let Some(binding) = pat.name().map(|name| name.to_string()) else {
+                return false;
+            };
+            if binding == *name {
+                return scope.contains_range(pat.syntax().text_range());
+            }
+            let Some(positions) = reads.get(&binding) else {
+                return false;
+            };
+            let Some(visible) = max_visible_bindings::scope(&pat, body) else {
+                return true;
+            };
+            positions.iter().any(|&position| visible.contains(position))
+        })
+}
+
+/// Where each field of `target` is read.
 ///
 /// Returns `None` if `target` is used as a whole, or a field is assigned to.
 fn field_reads(
     function: &ast::Fn,
     target: &Target,
     fields: &[String],
-) -> Option<(BTreeSet<String>, TextSize)> {
+) -> Option<BTreeMap<String, Vec<TextSize>>> {
     let Target { name, scope, .. } = target;
-    let mut accessed_fields = BTreeSet::new();
-    let mut first_access = None;
+    let mut reads: BTreeMap<String, Vec<TextSize>> = BTreeMap::new();
 
     let uses = function
         .body()?
@@ -332,10 +359,12 @@ fn field_reads(
         if !fields.contains(&field_name) || is_assignment_target(&field) {
             return None;
         }
-        first_access.get_or_insert_with(|| field.syntax().text_range().start());
-        accessed_fields.insert(field_name);
+        reads
+            .entry(field_name)
+            .or_default()
+            .push(field.syntax().text_range().start());
     }
-    Some((accessed_fields, first_access?))
+    Some(reads)
 }
 
 fn warning_message(
@@ -610,5 +639,24 @@ mod tests {
             ",
         ));
         assert!(warnings.is_empty(), "{warnings:#?}");
+    }
+
+    #[test]
+    fn shadowing_a_field_after_reading_it_is_fine() {
+        let warnings = lint(&unindent(
+            "
+            struct Builder { config: Option<u32>, name: String, size: u32 }
+            impl Builder {
+                fn build(self) -> u32 { let config = self.config.unwrap_or(0); config + self.size }
+                fn clash(self, size: u32) -> u32 { self.config.unwrap_or(size) + self.size }
+            }
+            ",
+        ));
+        assert_eq!(
+            warnings,
+            vec![
+                "field `name` of `Builder` is never used; consider destructuring to make that explicit: `let Builder { config, name: _, size } = self;`",
+            ]
+        );
     }
 }
