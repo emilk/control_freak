@@ -184,6 +184,7 @@ dependencies = [
  "insta",
  "ra_ap_syntax",
  "serde",
+ "similar",
  "tempfile",
  "toml",
  "unindent",

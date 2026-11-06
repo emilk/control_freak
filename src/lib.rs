@@ -149,12 +149,12 @@ fn format_file_with_config(path: &Path, fix: bool, config: &Config) -> Result<us
     Ok(problems.len())
 }
 
-/// One warning per changed region between `old` and `new`.
+/// One warning per changed region between `old` and `new`, in `old` line numbers.
 fn formatting_problems(old: &str, new: &str) -> Vec<lints::LintWarning> {
     let old_lines: Vec<&str> = old.lines().collect();
     let new_lines: Vec<&str> = new.lines().collect();
 
-    changed_regions(&old_lines, &new_lines)
+    diff_regions(&old_lines, &new_lines)
         .into_iter()
         .map(|(start, end)| {
             let lines = if start + 1 == end {
@@ -171,7 +171,37 @@ fn formatting_problems(old: &str, new: &str) -> Vec<lints::LintWarning> {
         .collect()
 }
 
-/// Line ranges (0-based, exclusive end) that differ between `old` and `new`.
+/// Line ranges of `old` (0-based, exclusive end) that change in `new`.
+///
+/// Inserted lines count as changing the line they are inserted before.
+/// Changes separated by a single unchanged line are merged into one region.
+fn diff_regions(old: &[&str], new: &[&str]) -> Vec<(usize, usize)> {
+    let mut regions: Vec<(usize, usize)> = Vec::new();
+    for op in similar::capture_diff_slices(similar::Algorithm::Myers, old, new) {
+        let (tag, old_range, _) = op.as_tag_tuple();
+        if tag == similar::DiffTag::Equal {
+            continue;
+        }
+        let start = old_range.start;
+        let end = old_range.end.max(start + 1);
+        merge_region(&mut regions, start, end);
+    }
+    regions
+}
+
+/// Push `start..end`, or extend the last region if at most one line separates them.
+fn merge_region(regions: &mut Vec<(usize, usize)>, start: usize, end: usize) {
+    if let Some(last) = regions.last_mut()
+        && start <= last.1 + 1
+    {
+        last.1 = last.1.max(end);
+    } else {
+        regions.push((start, end));
+    }
+}
+
+/// Line ranges (0-based, exclusive end) where `old` and `new` differ, comparing
+/// line `i` of one with line `i` of the other.
 ///
 /// Changes separated by a single unchanged line are merged into one region,
 /// so that e.g. `} else {` between two changed blocks stays together.
@@ -188,13 +218,7 @@ fn changed_regions(old: &[&str], new: &[&str]) -> Vec<(usize, usize)> {
         while line < num_lines && old.get(line) != new.get(line) {
             line += 1;
         }
-        if let Some(last) = regions.last_mut()
-            && start <= last.1 + 1
-        {
-            last.1 = line;
-        } else {
-            regions.push((start, line));
-        }
+        merge_region(&mut regions, start, line);
     }
     regions
 }
@@ -412,12 +436,16 @@ mod tests {
             lines(formatting_problems("a\nb\nc\nd\ne\n", "x\nb\nc\ny\nz\nw\n")),
             vec![
                 "1:1: formatting needed (line 1); run with `--fix` to apply",
-                "4:1: formatting needed (lines 4-6); run with `--fix` to apply",
+                "4:1: formatting needed (lines 4-5); run with `--fix` to apply",
             ]
         );
         assert_eq!(
             lines(formatting_problems("a\nb\nc\n", "x\nb\ny\n")),
             vec!["1:1: formatting needed (lines 1-3); run with `--fix` to apply"]
+        );
+        assert_eq!(
+            lines(formatting_problems("a\nb\nc\nd\n", "a\n\nb\nc\nd\n")),
+            vec!["2:1: formatting needed (line 2); run with `--fix` to apply"]
         );
     }
 
