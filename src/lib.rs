@@ -208,10 +208,10 @@ pub fn format_source(source: &str) -> String {
     let mut result = source.to_owned();
 
     result = formatters::flip_negated_ifs(&result);
+    result = restore_nolint_lines(source, &result);
 
-    // Add more formatters here as they are implemented
-
-    restore_nolint_lines(source, &result)
+    // Respects NOLINT itself, since it changes the number of lines
+    formatters::add_vertical_spacing(&result)
 }
 
 /// If the original has `// NOLINT` on or above the first line of a changed

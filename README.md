@@ -20,6 +20,27 @@ if is_ready {
 }
 ```
 
+### `vertical_spacing`
+```rust
+// Before:
+struct Point {
+    x: f32,
+    /// Up
+    y: f32,
+}
+impl Point {}
+
+// After:
+struct Point {
+    x: f32,
+
+    /// Up
+    y: f32,
+}
+
+impl Point {}
+```
+
 ## Lints
 
 ### `max_mut_bindings`
