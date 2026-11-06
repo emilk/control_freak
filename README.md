@@ -43,6 +43,11 @@ impl Point {}
 
 ## Lints
 
+### `dyn_any_params`
+```rust
+fn handle(event: &dyn Any) {} // ⚠️ parameter of type `&dyn Any`; …
+```
+
 ### `max_mut_bindings`
 ```rust
 // With `max_bindings = 2`:

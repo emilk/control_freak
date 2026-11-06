@@ -111,6 +111,7 @@ impl Config {
 #[derive(Debug, Default, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct LintsConfig {
+    pub dyn_any_params: LintConfig,
     pub max_mut_bindings: MaxMutBindingsConfig,
     pub max_struct_fields: MaxStructFieldsConfig,
     pub max_visible_bindings: MaxVisibleBindingsConfig,
@@ -235,6 +236,7 @@ mod tests {
         let config = Config::default();
         assert!(config.skip_generated);
         assert!(config.skip_tests);
+        assert!(config.lints.dyn_any_params.enabled);
         assert!(config.lints.max_mut_bindings.enabled);
         assert_eq!(config.lints.max_mut_bindings.max_bindings, 6);
         assert!(config.lints.max_struct_fields.enabled);

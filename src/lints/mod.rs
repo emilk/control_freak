@@ -1,8 +1,10 @@
+pub mod dyn_any_params;
 pub mod max_struct_fields;
 pub mod max_visible_bindings;
 pub mod negated_bool_names;
 pub mod use_destructuring;
 
+pub use dyn_any_params::lint_dyn_any_params;
 pub use max_struct_fields::lint_max_struct_fields;
 pub use max_visible_bindings::{lint_max_mut_bindings, lint_max_visible_bindings};
 pub use negated_bool_names::lint_negated_bool_names;
@@ -12,6 +14,10 @@ use crate::RuleInfo;
 
 /// All lints, sorted by name.
 pub const LINTS: &[RuleInfo] = &[
+    RuleInfo {
+        name: "dyn_any_params",
+        summary: "Parameters of type `&dyn Any`, which a `&Box<dyn Any>` also fits",
+    },
     RuleInfo {
         name: "max_mut_bindings",
         summary: "Too many mutable bindings visible at once in a function",
