@@ -280,6 +280,9 @@ pub fn lint_source_with_config(source: &str, config: &Config) -> Vec<lints::Lint
             &config.lints.use_destructuring,
         ));
     }
+    if config.lints.zip_chain_methods.enabled {
+        warnings.extend(lints::lint_zip_chain_methods(source));
+    }
     let test_lines = if config.skip_tests {
         test_code::test_line_ranges(source)
     } else {
@@ -387,6 +390,7 @@ mod tests {
         config.lints.max_visible_bindings.enabled = false;
         config.lints.negated_bool_names.enabled = false;
         config.lints.use_destructuring.enabled = false;
+        config.lints.zip_chain_methods.enabled = false;
 
         assert!(lint_source_with_config(&source, &config).is_empty());
     }

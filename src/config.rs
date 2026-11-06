@@ -117,6 +117,7 @@ pub struct LintsConfig {
     pub max_visible_bindings: MaxVisibleBindingsConfig,
     pub negated_bool_names: LintConfig,
     pub use_destructuring: UseDestructuringConfig,
+    pub zip_chain_methods: LintConfig,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -248,6 +249,7 @@ mod tests {
         assert_eq!(config.lints.use_destructuring.min_fields, 3);
         assert_eq!(config.lints.use_destructuring.owned.min_fields, 2);
         assert_eq!(config.lints.use_destructuring.owned.max_missing_fields, 1);
+        assert!(config.lints.zip_chain_methods.enabled);
     }
 
     #[test]

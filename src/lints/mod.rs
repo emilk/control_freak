@@ -3,12 +3,14 @@ pub mod max_struct_fields;
 pub mod max_visible_bindings;
 pub mod negated_bool_names;
 pub mod use_destructuring;
+pub mod zip_chain_methods;
 
 pub use dyn_any_params::lint_dyn_any_params;
 pub use max_struct_fields::lint_max_struct_fields;
 pub use max_visible_bindings::{lint_max_mut_bindings, lint_max_visible_bindings};
 pub use negated_bool_names::lint_negated_bool_names;
 pub use use_destructuring::lint_use_destructuring;
+pub use zip_chain_methods::lint_zip_chain_methods;
 
 use crate::RuleInfo;
 
@@ -37,6 +39,10 @@ pub const LINTS: &[RuleInfo] = &[
     RuleInfo {
         name: "use_destructuring",
         summary: "Methods that access every field of `self` one by one",
+    },
+    RuleInfo {
+        name: "zip_chain_methods",
+        summary: "Method calls `a.zip(b)` and `a.chain(b)`, instead of `std::iter::zip(a, b)`",
     },
 ];
 

@@ -86,3 +86,8 @@ impl Point {
     }
 }
 ```
+
+### `zip_chain_methods`
+```rust
+let pairs = a.iter().zip(b); // ⚠️ prefer `std::iter::zip(a, b)` …
+```
