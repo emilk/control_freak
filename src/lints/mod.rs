@@ -2,6 +2,7 @@ pub mod dyn_any_params;
 pub mod max_struct_fields;
 pub mod max_visible_bindings;
 pub mod negated_bool_names;
+pub mod unnamed_error_fields;
 pub mod use_destructuring;
 pub mod zip_chain_methods;
 
@@ -9,6 +10,7 @@ pub use dyn_any_params::lint_dyn_any_params;
 pub use max_struct_fields::lint_max_struct_fields;
 pub use max_visible_bindings::{lint_max_mut_bindings, lint_max_visible_bindings};
 pub use negated_bool_names::lint_negated_bool_names;
+pub use unnamed_error_fields::lint_unnamed_error_fields;
 pub use use_destructuring::lint_use_destructuring;
 pub use zip_chain_methods::lint_zip_chain_methods;
 
@@ -35,6 +37,10 @@ pub const LINTS: &[RuleInfo] = &[
     RuleInfo {
         name: "negated_bool_names",
         summary: "Boolean names with negation words, like `is_disabled`",
+    },
+    RuleInfo {
+        name: "unnamed_error_fields",
+        summary: "`#[error]` on tuple variants with 2+ fields, like `#[error(\"{0} {1}\")]`",
     },
     RuleInfo {
         name: "use_destructuring",

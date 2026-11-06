@@ -78,6 +78,14 @@ struct Config {
 }
 ```
 
+### `unnamed_error_fields`
+```rust
+enum Error {
+    #[error("{0}: {1}")] // ⚠️ error with 2 unnamed fields; use named fields …
+    Io(String, std::io::Error),
+}
+```
+
 ### `use_destructuring`
 ```rust
 impl Point {

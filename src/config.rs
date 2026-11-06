@@ -116,6 +116,7 @@ pub struct LintsConfig {
     pub max_struct_fields: MaxStructFieldsConfig,
     pub max_visible_bindings: MaxVisibleBindingsConfig,
     pub negated_bool_names: LintConfig,
+    pub unnamed_error_fields: LintConfig,
     pub use_destructuring: UseDestructuringConfig,
     pub zip_chain_methods: LintConfig,
 }
@@ -245,6 +246,7 @@ mod tests {
         assert!(config.lints.max_visible_bindings.enabled);
         assert_eq!(config.lints.max_visible_bindings.max_bindings, 24);
         assert!(config.lints.negated_bool_names.enabled);
+        assert!(config.lints.unnamed_error_fields.enabled);
         assert!(config.lints.use_destructuring.enabled);
         assert_eq!(config.lints.use_destructuring.min_fields, 3);
         assert_eq!(config.lints.use_destructuring.owned.min_fields, 2);

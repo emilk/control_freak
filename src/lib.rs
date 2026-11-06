@@ -274,6 +274,9 @@ pub fn lint_source_with_config(source: &str, config: &Config) -> Vec<lints::Lint
     if config.lints.negated_bool_names.enabled {
         warnings.extend(lints::lint_negated_bool_names(source));
     }
+    if config.lints.unnamed_error_fields.enabled {
+        warnings.extend(lints::lint_unnamed_error_fields(source));
+    }
     if config.lints.use_destructuring.enabled {
         warnings.extend(lints::lint_use_destructuring(
             source,
@@ -389,6 +392,7 @@ mod tests {
         config.lints.max_struct_fields.enabled = false;
         config.lints.max_visible_bindings.enabled = false;
         config.lints.negated_bool_names.enabled = false;
+        config.lints.unnamed_error_fields.enabled = false;
         config.lints.use_destructuring.enabled = false;
         config.lints.zip_chain_methods.enabled = false;
 
