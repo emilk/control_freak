@@ -15,6 +15,8 @@ const NEGATION_WORDS: &[&str] = &[
     "disconnect",
     "disconnected",
     "dont",
+    "hidden",
+    "hide",
     "illegal",
     "never",
     "no",
@@ -219,6 +221,7 @@ mod tests {
             "
             struct Config {
                 disabled_count: u32,
+                hidden: HashSet<String>,
                 no_cache: String,
             }
             ",
@@ -390,13 +393,15 @@ mod tests {
                 disable_feature: bool,
                 disabled: bool,
                 dont_retry: bool,
+                hide_examples: bool,
+                hidden: bool,
                 never_show: bool,
                 no_wrap: bool,
                 not_ready: bool,
             }
             ",
         ));
-        assert_eq!(warnings.len(), 8);
+        assert_eq!(warnings.len(), 10);
     }
 
     #[test]
